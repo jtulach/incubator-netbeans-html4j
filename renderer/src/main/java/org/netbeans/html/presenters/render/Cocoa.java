@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
+import org.graalvm.nativeimage.ImageInfo;
 import org.netbeans.html.boot.spi.Fn;
 
 final class Cocoa extends Show implements Callback {
@@ -67,7 +68,7 @@ final class Cocoa extends Show implements Callback {
         this.presenter = p;
         this.onPageLoad = onPageLoad;
         this.onContext = onContext;
-        this.jsc = (JSC) Native.loadLibrary("JavaScriptCore", JSC.class, Collections.singletonMap(Library.OPTION_ALLOW_OBJECTS, true));
+        this.jsc = null; // (JSC) Native.loadLibrary("JavaScriptCore", JSC.class, Collections.singletonMap(Library.OPTION_ALLOW_OBJECTS, true));
     }
 
     @Override
@@ -164,9 +165,19 @@ final class Cocoa extends Show implements Callback {
         }
     }
 
+    static ObjC initObjC() {
+        boolean inNative;
+        try {
+            inNative = ImageInfo.inImageCode();
+        } catch (LinkageError err) {
+            inNative = false;
+        }
+        return inNative ? new RawObjC() : (ObjC) Native.loadLibrary("objc.A", ObjC.class);
+    }
+
     public interface ObjC extends Library {
 
-        public static ObjC INSTANCE = (ObjC) Native.loadLibrary("objc.A", ObjC.class);
+        public static ObjC INSTANCE = initObjC();
 
         public boolean class_addMethod(Pointer cls, Pointer name, Callback imp, String types);
 

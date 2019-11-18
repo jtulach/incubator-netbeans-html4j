@@ -43,12 +43,16 @@ public abstract class Show {
      */
     public static void show(String impl, URI page) throws IOException {
         try {
-            Class<?> c = Class.forName(Show.class.getPackage().getName() + '.' + impl);
-            Show show = (Show) c.newInstance();
+            Show show =
+                "AWT".equals(impl) ? new AWT() :
+                "GTK".equals(impl) ? new GTK() :
+                "Cocoa".equals(impl) ? new Cocoa() :
+                null;
             show.show(page);
         } catch (IOException ex) {
             throw ex;
         } catch (Exception ex) {
+            ex.printStackTrace();
             if (impl == null) {
                 impl = "xdg-open";
             }

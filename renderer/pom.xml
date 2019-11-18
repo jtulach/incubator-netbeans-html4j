@@ -34,6 +34,7 @@
         <publicPackages>org.netbeans.html.presenters.render</publicPackages>
         <publicMetaInf/>
         <sigtestPackages/>
+        <native.image>${java.home}/bin/native-image</native.image>
     </properties>
     <build>
         <plugins>
@@ -46,6 +47,32 @@
                         <Require-Capability>osgi.extender;resolution:=optional;cardinality:=multiple;resolution:=optional</Require-Capability>
                     </instructions>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                        <id>build-standalone</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${native.image}</executable>
+                            <arguments>
+                                <argument>${debug.native}</argument>
+                                <argument>--report-unsupported-elements-at-runtime</argument>
+                                <argument>-H:Name=${project.build.directory}/renderer</argument>
+                                <argument>-H:+ReportExceptionStackTraces</argument>
+                                <argument>-cp</argument>
+                                <classpath/>
+                                <argument>org.netbeans.html.presenters.render.RawObjC</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
@@ -64,5 +91,11 @@
             <artifactId>net.java.html.boot</artifactId>
             <version>${project.version}</version>
         </dependency>
-    </dependencies>    
+        <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>graal-sdk</artifactId>
+            <version>19.2.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 </project>

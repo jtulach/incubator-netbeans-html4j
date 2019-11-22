@@ -24,11 +24,9 @@ import com.sun.jna.ptr.IntByReference;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import org.graalvm.nativeimage.StackValue;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.function.CFunction;
 import org.graalvm.nativeimage.c.function.CLibrary;
-import org.graalvm.nativeimage.c.struct.CStruct;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
 import org.graalvm.word.PointerBase;
@@ -72,6 +70,9 @@ public final class RawObjC implements ObjC {
         CTypeConversion.CCharPointerHolder cName = CTypeConversion.toCString(name);
         try {
             PointerBase ptr = objc_getClass(cName.get());
+            if (ptr.isNull()) {
+                throw new IllegalStateException("Cannot find class " + name);
+            }
             return new Pointer(ptr.rawValue());
         } finally {
             cName.close();
@@ -79,17 +80,80 @@ public final class RawObjC implements ObjC {
     }
 
     @CFunction
-    private static native long objc_msgSend(PointerBase theReceiver, PointerBase theSelector, PointerBase args);
+    private static native long objc_msgSend(PointerBase theReceiver, PointerBase theSelector, PointerBase p0, int i1);
 
+    @CFunction
+    private static native long objc_msgSend(PointerBase theReceiver, PointerBase theSelector, PointerBase p0, PointerBase p1, int i2);
 
+    @CFunction
+    private static native long objc_msgSend(PointerBase theReceiver, PointerBase theSelector, long l0, PointerBase p1, int i2);
+
+    @CFunction
+    private static native long objc_msgSend(PointerBase theReceiver, PointerBase theSelector, int i0);
 
     @Override
     public long objc_msgSend(Pointer theReceiver, Pointer theSelector, Object... arguments) {
+        PointerBase ptrReceiver = toPtr(theReceiver);
+        PointerBase ptrSelector = toPtr(theSelector);
         Thread.dumpStack();
-        System.err.println("arguments: " + Arrays.toString(arguments));
-        PointerBase args = WordFactory.nullPointer(); // StackValue.get(arguments.length, PointerBase.class);
 
-        return objc_msgSend(toPtr(theReceiver), toPtr(theSelector), args);
+        System.err.println("receiver: " + theReceiver);
+        System.err.println("selector: " + theSelector);
+        for (Object a : arguments) {
+            if (a == null) {
+                System.err.println("  type is null");
+                continue;
+            }
+            System.err.println("  type: " + a.getClass().getName());
+        }
+        System.err.println("arguments: " + Arrays.toString(arguments));
+
+        long ret = msgDispatch(arguments, ptrReceiver, ptrSelector);
+
+        System.err.println("  return: " + ret);
+        return ret;
+    }
+
+    private long msgDispatch(Object[] arguments, PointerBase ptrReceiver, PointerBase ptrSelector) {
+        if (arguments.length == 0) {
+            return objc_msgSend(ptrReceiver, ptrSelector, 0);
+        }
+
+        if (arguments.length == 1) {
+            if (arguments[0] instanceof Integer) {
+                int i0 = (Integer) arguments[0];
+                return objc_msgSend(ptrReceiver, ptrSelector, i0);
+            }
+            if (arguments[0] instanceof Pointer) {
+                PointerBase ptr0 = toPtr((Pointer) arguments[0]);
+                return objc_msgSend(ptrReceiver, ptrSelector, ptr0, 0);
+            }
+        }
+
+        if (arguments.length == 2) {
+            if (arguments[0] instanceof String && arguments[1] instanceof Integer) {
+                CTypeConversion.CCharPointerHolder s0 = CTypeConversion.toCString((String) arguments[0]);
+                try {
+                    int i1 = (Integer) arguments[1];
+                    return objc_msgSend(ptrReceiver, ptrSelector, s0.get(), i1);
+                } finally {
+                    s0.close();
+                }
+            }
+            if (arguments[0] instanceof Pointer && arguments[1] instanceof Pointer) {
+                PointerBase ptr0 = toPtr((Pointer) arguments[0]);
+                PointerBase ptr1 = toPtr((Pointer) arguments[1]);
+                return objc_msgSend(ptrReceiver, ptrSelector, ptr0, ptr1, 0);
+            }
+            if (arguments[0] instanceof Long && arguments[1] instanceof Pointer) {
+                long l0 = (Long) arguments[0];
+                PointerBase ptr1 = toPtr((Pointer) arguments[1]);
+                return objc_msgSend(ptrReceiver, ptrSelector, l0, ptr1, 0);
+            }
+        }
+
+        System.err.println("#########################");
+        return objc_msgSend(ptrReceiver, ptrSelector, -1);
     }
 
     private static PointerBase toPtr(Pointer theReceiver) {

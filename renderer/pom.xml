@@ -64,6 +64,7 @@
                             <arguments>
                                 <argument>${debug.native}</argument>
                                 <argument>--report-unsupported-elements-at-runtime</argument>
+                                <argument>-H:NativeLinkerOption=-Wl,-framework,Foundation</argument>
                                 <argument>-H:Name=${project.build.directory}/renderer</argument>
                                 <argument>-H:+ReportExceptionStackTraces</argument>
                                 <argument>-cp</argument>

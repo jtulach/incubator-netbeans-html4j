@@ -87,7 +87,7 @@ final class Cocoa extends Show implements Callback {
 
         ensureHttpAccess(page);
 
-        Native.loadLibrary("WebKit", WebKit.class);
+//        Native.loadLibrary("WebKit", WebKit.class);
 
         appDidStart = new AppDidStart();
         contextCreated = new ContextCreated();

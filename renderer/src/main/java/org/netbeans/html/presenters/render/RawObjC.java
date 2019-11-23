@@ -60,9 +60,19 @@ public final class RawObjC implements ObjC {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    @CFunction
+    private static native PointerBase objc_allocateClassPair(PointerBase cls, CCharPointer name, int additionalBytes);
+
     @Override
     public Pointer objc_allocateClassPair(Pointer cls, String name, int additionalBytes) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        CTypeConversion.CCharPointerHolder cName = CTypeConversion.toCString(name);
+        try {
+            PointerBase clsPtr = WordFactory.pointer(Pointer.nativeValue(cls));
+            PointerBase ptr = objc_allocateClassPair(clsPtr, cName.get(), additionalBytes);
+            return new Pointer(ptr.rawValue());
+        } finally {
+            cName.close();
+        }
     }
 
     @Override

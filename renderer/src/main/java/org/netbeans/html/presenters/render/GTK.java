@@ -132,7 +132,7 @@ final class GTK extends Show implements InvokeLater {
         int webkit_web_view_get_load_status(Pointer webView);
         byte webkit_web_view_is_loading(Pointer webView);
         Pointer webkit_web_view_get_main_frame(Pointer webView);
-        String webkit_web_frame_get_title(Pointer webFrame);
+        String webkit_web_view_get_title(Pointer webFrame);
         void webkit_web_view_run_javascript (Pointer web_view, String script,
                                 Pointer cancellable,
                                 Callback callback,
@@ -303,14 +303,11 @@ final class GTK extends Show implements InvokeLater {
         public void loadStatus() {
             int status = libs.webKit.webkit_web_view_is_loading(webView);
             if (status == 0) {
-                /* XXX
-                final Pointer frame = libs.webKit.webkit_web_view_get_main_frame(webView);
                 if (title == null) {
-                    title = new Title(frame);
+                    title = new Title(webView, null);
                     title.updateTitle();
-                    libs.g.g_signal_connect_data(frame, "notify::title", title, null, null, 0);
+                    libs.g.g_signal_connect_data(webView, "notify::title", title, null, null, 0);
                 }
-*/
                 if (onPageLoad != null) {
                     onPageLoad.run();
                 }
@@ -318,14 +315,16 @@ final class GTK extends Show implements InvokeLater {
         }
 
         private class Title implements Callback {
+            private final Pointer webView;
             private final Pointer frame;
 
-            public Title(Pointer frame) {
+            public Title(Pointer webView, Pointer frame) {
+                this.webView = webView;
                 this.frame = frame;
             }
 
             public void updateTitle() {
-                String title = libs.webKit.webkit_web_frame_get_title(frame);
+                String title = libs.webKit.webkit_web_view_get_title(webView);
                 if (title == null) {
                     title = "DukeScript Application";
                 }

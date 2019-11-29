@@ -59,10 +59,10 @@ public interface JSC extends Library {
         @Override
         protected List getFieldOrder() {
             return Arrays.asList(
-                "version", "attributes", "className", "parentClass", 
-                "staticValues", "staticFunctions", "initialize", 
-                "finalize", "hasProperty", "getProperty", "setProperty", 
-                "deleteProperty", "getPropertyNames", "callAsFunction", 
+                "version", "attributes", "className", "parentClass",
+                "staticValues", "staticFunctions", "initialize",
+                "finalize", "hasProperty", "getProperty", "setProperty",
+                "deleteProperty", "getPropertyNames", "callAsFunction",
                 "callAsConstructor", "hasInstance", "convertToType"
             );
         }
@@ -78,7 +78,7 @@ public interface JSC extends Library {
     @param jsClass The JSClass to test against.
     @result true if value is an object and has jsClass in its class chain, otherwise false.
      */
-    boolean JSValueIsObjectOfClass(Pointer ctx, Pointer value, Pointer jsClass);
+    byte JSValueIsObjectOfClass(Pointer ctx, Pointer value, Pointer jsClass);
 
     Pointer JSContextGetGlobalObject(Pointer ctx);
 
@@ -281,5 +281,6 @@ public interface JSC extends Library {
     void JSValueProtect(Pointer ctx, Pointer value);
 
     void JSValueUnprotect(Pointer ctx, Pointer value);
-    
+
+    Pointer jsc_value_get_context(Pointer jsValue);
 }

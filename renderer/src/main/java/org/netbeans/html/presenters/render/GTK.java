@@ -24,6 +24,7 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.PointerByReference;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -48,6 +49,7 @@ final class GTK extends Show implements InvokeLater {
     private final boolean headless;
 
     private OnDestroy onDestroy;
+    private OnJs onJs;
     private OnLoad onLoad;
     private Pending pending;
     private String page;
@@ -69,7 +71,7 @@ final class GTK extends Show implements InvokeLater {
     public JSC jsc() {
         return INSTANCE.jsc;
     }
-    
+
     @Override
     public Pointer jsContext() {
         return jsContext;
@@ -79,7 +81,7 @@ final class GTK extends Show implements InvokeLater {
         void g_idle_add(Callback r, Pointer p);
     }
     public interface G extends Library {
-        void g_signal_connect_data(Pointer obj, String signal, Callback callback, Pointer data, Void nul, int flags);
+        long g_signal_connect_data(Pointer obj, String signal, Callback callback, Pointer data, Void nul, int flags);
     }
 
     public interface Gtk extends Library {
@@ -128,9 +130,18 @@ final class GTK extends Show implements InvokeLater {
         void webkit_web_view_load_uri(Pointer webView, String url);
         Pointer webkit_web_page_frame_get_javascript_context_for_script_world(Pointer webFrame, Pointer world);
         int webkit_web_view_get_load_status(Pointer webView);
+        byte webkit_web_view_is_loading(Pointer webView);
         Pointer webkit_web_view_get_main_frame(Pointer webView);
-        Pointer webkit_web_frame_get_global_context(Pointer webFrame);
         String webkit_web_frame_get_title(Pointer webFrame);
+        void webkit_web_view_run_javascript (Pointer web_view, String script,
+                                Pointer cancellable,
+                                Callback callback,
+                                Pointer user_data);
+        Pointer webkit_web_view_run_javascript_finish(Pointer webView, Pointer result, PointerByReference error);
+
+        Pointer webkit_javascript_result_get_js_value(Pointer jsResult);
+
+        Pointer webkit_javascript_result_get_global_context(Pointer jsResult);
     }
 
     private static Libs INSTANCE;
@@ -191,17 +202,23 @@ final class GTK extends Show implements InvokeLater {
 
         final Pointer webView = webKit.webkit_web_view_new();
         gtk.gtk_container_add(scroll, webView);
-        Pointer frame = webKit.webkit_web_view_get_main_frame(webView);
-        Pointer ctx = webKit.webkit_web_frame_get_global_context(frame);
-        this.jsContext = ctx;
-        if (onContext != null) {
-            onContext.run();
-        }
+        this.onJs = new OnJs() {
+            @Override
+            public void ready(Pointer webView, Pointer gAsyncResult, Pointer userData) {
+                Pointer jsResult = webKit.webkit_web_view_run_javascript_finish(webView, gAsyncResult, null);
+                Pointer ctx = webKit.webkit_javascript_result_get_global_context(jsResult);
+                GTK.this.jsContext = ctx;
+                if (onContext != null) {
+                    onContext.run();
+                }
+            }
+        };
+        webKit.webkit_web_view_run_javascript(webView, "undefined", null, onJs, null);
         onLoad = new OnLoad(webView, libs, window, onPageLoad);
-        g.g_signal_connect_data(webView, "notify::load-status", onLoad, null, null, 0);
+        g.g_signal_connect_data(webView, "notify::is-loading", onLoad, null, null, 0);
 
         newWebView = new NewWebView(libs, headless);
-        g.g_signal_connect_data(webView, "create-web-view", newWebView, window, null, 0);
+        g.g_signal_connect_data(webView, "create", newWebView, window, null, 0);
 
         webKit.webkit_web_view_load_uri(webView, page);
 
@@ -265,6 +282,10 @@ final class GTK extends Show implements InvokeLater {
         }
     }
 
+    private abstract static class OnJs implements Callback {
+        public abstract void ready(Pointer webView, Pointer gAsyncResult, Pointer userData);
+    }
+
     private static class OnLoad implements Callback {
         private final Libs libs;
         private final Pointer webView;
@@ -280,14 +301,16 @@ final class GTK extends Show implements InvokeLater {
         }
 
         public void loadStatus() {
-            int status = libs.webKit.webkit_web_view_get_load_status(webView);
-            if (status == 2) {
+            int status = libs.webKit.webkit_web_view_is_loading(webView);
+            if (status == 0) {
+                /* XXX
                 final Pointer frame = libs.webKit.webkit_web_view_get_main_frame(webView);
                 if (title == null) {
                     title = new Title(frame);
                     title.updateTitle();
                     libs.g.g_signal_connect_data(frame, "notify::title", title, null, null, 0);
                 }
+*/
                 if (onPageLoad != null) {
                     onPageLoad.run();
                 }
@@ -384,7 +407,7 @@ final class GTK extends Show implements InvokeLater {
             String libName = System.getProperty("com.dukescript.presenters.renderer." + type.getSimpleName());
             if (libName == null) {
                 if (type == JSC.class) {
-                    libName = "javascriptcoregtk-3.0";
+                    libName = "javascriptcoregtk-4.0";
                 } else if (type == GTK.GLib.class) {
                     libName = "glib-2.0";
                 } else if (type == GTK.G.class) {
@@ -394,7 +417,7 @@ final class GTK extends Show implements InvokeLater {
                 } else if (type == GTK.Gtk.class) {
                     libName = "gtk-3";
                 } else if (type == GTK.WebKit.class) {
-                    libName = "webkitgtk-3.0";
+                    libName = "webkit2gtk-4.0";
                 }
             }
             try {

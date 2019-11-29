@@ -90,7 +90,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             }
         }, headless);
     }
-    
+
     @Override
     public Fn defineFn(String code, String... names) {
         return defineFn(code, names, null);
@@ -108,7 +108,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         if (fn == null) {
             throw new IllegalStateException("Cannot initialize function: " + exc.getValue());
         }
-        
+
         jsc.JSStringRelease(jsCode);
         for (Pointer jsName : jsNames) {
             jsc.JSStringRelease(jsName);
@@ -157,7 +157,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             throw new Exception(convertToString(shell.jsc(), ex.getValue()));
         }
     }
-    
+
     Pointer[] convertFromJava(Object... args) throws Exception {
         return convertFromJava(args, null);
     }
@@ -225,7 +225,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
                 v = vm;
             } else {
                 Pointer p = jsc.JSObjectMake(ctx, javaClazz, null);
-                if (keepAlive == null || keepAlive[i]) { 
+                if (keepAlive == null || keepAlive[i]) {
                     toJava.put(p, v);
                 } else {
                     toJava.put(p, new WeakVal(v));
@@ -237,7 +237,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         }
         return arr;
     }
-    
+
     final String convertToString(JSC jsc, Pointer value) {
         int type = jsc.JSValueGetType(ctx, value);
         if (type == 5) {
@@ -248,7 +248,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         Object ret = convertToJava(jsc, String.class, value);
         return ret != null ? ret.toString() : "<null value>";
     }
-    
+
     final Object convertToJava(JSC jsc, Class<?> expectedType, Pointer value) throws IllegalStateException {
         int type = jsc.JSValueGetType(ctx, value);
         /*
@@ -262,7 +262,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         } JSType;
         */
         switch (type) {
-            case 0: 
+            case 0:
             case 1:
                 return null;
             case 2: {
@@ -355,13 +355,12 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         }
 
         {
-            Pointer jsGlobal = ctx;
             Pointer arrArg = jsc.JSStringCreateWithUTF8CString("x");
             Pointer arrT = jsc.JSStringCreateWithUTF8CString("var res = x.constructor === Array ? x.length : -1; return res;");
-            Pointer arrFn = jsc.JSObjectMakeFunction(jsGlobal, null, 1, new Pointer[]{arrArg}, arrT, null, 0, null);
-            arrayLength = arrFn;
+            Pointer arrFn = jsc.JSObjectMakeFunction(ctx, null, 1, new Pointer[]{arrArg}, arrT, null, 0, null);
+            assert !isJavaClazz(arrFn) : "functions aren't Java classes";
             jsc.JSValueProtect(ctx, arrFn);
-            assert !isJavaClazz(arrayLength) : "functions aren't Java classes";
+            arrayLength = arrFn;
         }
         {
             Pointer trueScr = jsc.JSStringCreateWithUTF8CString("true");
@@ -389,7 +388,8 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         if (type != 5) {
             return false;
         }
-        return jsc.JSValueIsObjectOfClass(ctx, obj, javaClazz);
+        int res = jsc.JSValueIsObjectOfClass(ctx, obj, javaClazz);
+        return res != 0;
     }
 
 
@@ -400,7 +400,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
         final String who = "WebKitPresenter:" + shell.getClass().getSimpleName();
         onPageLoad.run();
     }
-    
+
     private static final class JSObject {
         private final Pointer value;
 
@@ -419,7 +419,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             return other instanceof JSObject && value.equals(((JSObject)other).value);
         }
     }
-    
+
     private static final ReferenceQueue<? super Object> QUEUE = new ReferenceQueue<Object>();
     private static final Set<Protector> ALL = new HashSet<>();
     private void protect(Object obj, Pointer pointer) {
@@ -441,7 +441,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
     }
     private final class Protector extends PhantomReference<Object> {
         private final Pointer pointer;
-        
+
         public Protector(Object referent, Pointer p) {
             super(referent, QUEUE);
             this.pointer = p;
@@ -452,11 +452,11 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             jsc.JSValueUnprotect(ctx, pointer);
         }
     }
-        
+
     private final class JSCFn extends Fn {
         private final Pointer fn;
         private final boolean[] keepAlive;
-        
+
         public JSCFn(Pointer fn, boolean[] keepAlive) {
             this.fn = fn;
             this.keepAlive = keepAlive;
@@ -474,12 +474,12 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             if (exception.getValue() != null) {
                 throw new Exception(convertToString(jsc, exception.getValue()));
             }
-            
+
             return convertToJava(jsc, Object.class, ret);
         }
     }
 
-    
+
     public final class FnCallback implements Callback {
         private final Object vm;
         private final Method method;
@@ -488,7 +488,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             this.vm = vm;
             this.method = method;
         }
-        
+
         public Pointer call(
             Pointer jsContextRef, Pointer jsFunction, Pointer thisObject,
             int argumentCount, PointerByReference ref, Pointer exception
@@ -502,7 +502,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             return convertFromJava(method.invoke(vm, args))[0];
         }
     }
-    
+
     private final class OnFinalize implements Callback {
         public void callback(Pointer obj) {
             java.util.Iterator<Map.Entry<Object,Object>> it = toJava.entrySet().iterator();
@@ -515,7 +515,7 @@ public final class WebKitPresenter implements Fn.Presenter, Fn.KeepAlive, Execut
             }
         }
     }
-    
+
     private static final class WeakVal extends WeakReference<Object> {
         public WeakVal(Object referent) {
             super(referent);

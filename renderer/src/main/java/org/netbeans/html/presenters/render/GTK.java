@@ -160,16 +160,22 @@ final class GTK extends Show implements InvokeLater {
     public void show(URI url) throws IOException {
         this.page = url.toASCIIString();
         boolean[] justInitialized = {false};
-        Gtk gtk;
+        final Gtk gtk;
         try {
             gtk = getInstance(justInitialized).gtk;
         } catch (LinkageError e) {
             throw new IOException(e);
         }
         if (justInitialized[0]) {
-            gtk.gtk_init(0, null);
-            run();
-            gtk.gtk_main();
+            Thread mainLoop = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    gtk.gtk_init(0, null);
+                    GTK.this.run();
+                    gtk.gtk_main();
+                }
+            }, "GTK Main Loop");
+            mainLoop.start();
         } else {
             INSTANCE.glib.g_idle_add(this, null);
         }

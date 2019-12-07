@@ -435,9 +435,12 @@ final class GTK extends Show implements InvokeLater {
             List<LinkageError> collected = new ArrayList<LinkageError>();
             for (String libName : libraryNames) {
                 try {
+                    Show.LOG.log(Level.FINEST, "Loading library {0} as {1}", new Object[]{libName, type});
                     Object lib = Native.loadLibrary(libName, type, Collections.singletonMap(Library.OPTION_ALLOW_OBJECTS, allowObjects));
+                    Show.LOG.log(Level.FINEST, "Library {0} has been successfully loaded", libName);
                     return type.cast(lib);
                 } catch (LinkageError err) {
+                    Show.LOG.log(Level.FINEST, "Error loading library " + libName, err);
                     collected.add(err);
                 }
             }

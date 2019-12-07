@@ -36,33 +36,42 @@ script:
 
 matrix:
   include:
-    - os: linux
+    - name: JDK8 on 14.04
+      os: linux
       dist: trusty
       jdk: openjdk8
       env:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
-    - os: linux
+
+    - name: JDK8 on 18.04
+      os: linux
       dist: bionic
       jdk: openjdk11
       env:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
-    - os: linux
+
+    - name: JDK8 on 19.10
+      os: linux
       dist: eoan
       jdk: openjdk11
       env:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
-    - os: linux
+
+    - name: JDK11 on 14.04
+      os: linux
       dist: trusty
       jdk: openjdk11
       env:
         - ARGS=-Dnone
-    - os: osx
+
+    - name: JDK11 on Mac OS X
+      os: osx
       osx_image: xcode9.3
       jdk: openjdk11
       env:

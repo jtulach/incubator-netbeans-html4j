@@ -219,12 +219,24 @@ final class GTK extends Show implements InvokeLater {
                 }
             }
         };
-        webKit.webkit_web_view_run_javascript(webView, "undefined", null, onJs, null);
-        onLoad = new OnLoad(webView, libs, window, onPageLoad);
-        g.g_signal_connect_data(webView, "notify::is-loading", onLoad, null, null, 0);
+        try {
+            // running with WebKit2
+            webKit.webkit_web_view_run_javascript(webView, "undefined", null, onJs, null);
+            onLoad = new OnLoad(webView, libs, window, onPageLoad);
+            g.g_signal_connect_data(webView, "notify::is-loading", onLoad, null, null, 0);
 
-        newWebView = new NewWebView(libs, headless);
-        g.g_signal_connect_data(webView, "create", newWebView, window, null, 0);
+            newWebView = new NewWebView(libs, headless);
+            g.g_signal_connect_data(webView, "create", newWebView, window, null, 0);
+        } catch (LinkageError err) {
+            Show.LOG.log(Level.FINE, "Cannot initialize JavaScript", err);
+
+            // running with WebKit
+            onLoad = new OnLoad(webView, libs, window, onPageLoad);
+            g.g_signal_connect_data(webView, "notify::load-status", onLoad, null, null, 0);
+
+            newWebView = new NewWebView(libs, headless);
+            g.g_signal_connect_data(webView, "create-web-view", newWebView, window, null, 0);
+        }
 
         webKit.webkit_web_view_load_uri(webView, page);
 

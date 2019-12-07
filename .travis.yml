@@ -21,7 +21,8 @@ services:
   - xvfb
 before_install:
   - sudo apt-get -qq update || echo no sudo apt-get
-  - sudo apt-get install -y libwebkitgtk-3.0-0 || echo no sudo apt-get
+  - sudo apt-cache search libwebkit || echo no apt-cache
+  - if [ -n "$WEBKIT" ]; then sudo apt-get install -y $WEBKIT || echo no sudo apt-get; fi
   - if [ -n "$URL" ]; then pushd /tmp; curl $URL -o jdk.tgz; tar fxz jdk.tgz; JAVA_HOME=`pwd`/$DIR; popd; export JAVA_HOME; fi
   - echo Java is $JAVA_HOME
   - ls -l $JAVA_HOME
@@ -44,6 +45,7 @@ matrix:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
+        - WEBKIT=libwebkitgtk-3.0-0
 
     - name: JDK8 on 18.04
       os: linux
@@ -53,8 +55,9 @@ matrix:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
+        - WEBKIT=libwebkitgtk-3.0-0
 
-    - name: JDK8 on 19.10
+    - name: JDK8 on 19.10 and WebKit2
       os: linux
       dist: eoan
       jdk: openjdk11
@@ -62,6 +65,7 @@ matrix:
         - ARGS=-Dnone
         - DIR=zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64
         - URL=https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
+        - WEBKIT=libwebkit2gtk-4.0-37
 
     - name: JDK11 on 14.04
       os: linux
@@ -69,6 +73,7 @@ matrix:
       jdk: openjdk11
       env:
         - ARGS=-Dnone
+        - WEBKIT=libwebkitgtk-3.0-0
 
     - name: JDK11 on Mac OS X
       os: osx

@@ -43,12 +43,17 @@ public abstract class Show {
      */
     public static void show(String impl, URI page) throws IOException {
         try {
+            LOG.log(Level.FINE, "Trying to load {0}", impl);
             Class<?> c = Class.forName(Show.class.getPackage().getName() + '.' + impl);
+            LOG.log(Level.FINEST, "Class has been loaded {0}", c);
             Show show = (Show) c.newInstance();
+            LOG.log(Level.FINEST, "Instance has been created {0}", show);
             show.show(page);
+            LOG.log(Level.FINEST, "show() finished successfully!");
         } catch (IOException ex) {
             throw ex;
         } catch (Exception ex) {
+            LOG.log(Level.FINE, "Exception while loading " + impl, ex);
             if (impl == null) {
                 impl = "xdg-open";
             }

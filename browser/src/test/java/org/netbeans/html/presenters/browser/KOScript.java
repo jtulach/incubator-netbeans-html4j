@@ -24,7 +24,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.html.boot.spi.Fn;
+import org.netbeans.html.presenters.render.Show;
 import org.testng.IHookCallBack;
 import org.testng.IHookable;
 import org.testng.ITest;
@@ -32,6 +36,8 @@ import org.testng.ITestResult;
 import org.testng.annotations.Test;
 
 public final class KOScript implements ITest, IHookable, Runnable {
+
+    private static Logger LOG;
     private final Fn.Presenter p;
     private CountDownLatch finished;
     private final Method m;
@@ -105,5 +111,18 @@ public final class KOScript implements ITest, IHookable, Runnable {
     public void run(IHookCallBack ihcb, ITestResult itr) {
         ihcb.runTestMethod(itr);
     }
-    
+
+    public static void enableLogging() {
+        if (LOG == null) {
+            LOG = Logger.getLogger(Show.class.getName());
+            final ConsoleHandler h = new ConsoleHandler();
+            h.setLevel(Level.ALL);
+            LOG.addHandler(h);
+            LOG.setUseParentHandlers(false);
+            LOG.setLevel(Level.ALL);
+            Browser.LOG.setLevel(Level.FINE);
+            Browser.LOG.addHandler(h);
+            Browser.LOG.setUseParentHandlers(false);
+        }
+    }
 }

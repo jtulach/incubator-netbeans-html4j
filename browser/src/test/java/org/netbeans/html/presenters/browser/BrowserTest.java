@@ -37,6 +37,7 @@ public class BrowserTest extends JavaScriptTCK {
     }
 
     @Factory public static Object[] compatibilityTests() throws Exception {
+        KOScript.enableLogging();
         final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser("BrowserTest", new Browser.Config())).
             loadClass(BrowserTest.class).
             loadPage("empty.html").

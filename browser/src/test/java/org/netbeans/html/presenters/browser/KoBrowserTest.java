@@ -90,8 +90,7 @@ public class KoBrowserTest extends KnockoutTCK {
     }
    
     @Factory public static Object[] compatibilityTests() throws Exception {
-        Browser.LOG.setLevel(Level.FINE);
-        Browser.LOG.addHandler(new ConsoleHandler());
+        KOScript.enableLogging();
         
         final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser("KoBrowserTest", new Browser.Config())).
             loadClass(KoBrowserTest.class).

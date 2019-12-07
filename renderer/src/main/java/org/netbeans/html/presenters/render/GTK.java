@@ -133,6 +133,8 @@ final class GTK extends Show implements InvokeLater {
         byte webkit_web_view_is_loading(Pointer webView);
         Pointer webkit_web_view_get_main_frame(Pointer webView);
         String webkit_web_view_get_title(Pointer webFrame);
+        String webkit_web_frame_get_title(Pointer frame);
+        Pointer webkit_web_frame_get_global_context(Pointer frame);
         void webkit_web_view_run_javascript (Pointer web_view, String script,
                                 Pointer cancellable,
                                 Callback callback,
@@ -208,27 +210,14 @@ final class GTK extends Show implements InvokeLater {
 
         final Pointer webView = webKit.webkit_web_view_new();
         gtk.gtk_container_add(scroll, webView);
-        this.onJs = new OnJs() {
-            @Override
-            public void ready(Pointer webView, Pointer gAsyncResult, Pointer userData) {
-                Pointer jsResult = webKit.webkit_web_view_run_javascript_finish(webView, gAsyncResult, null);
-                Pointer ctx = webKit.webkit_javascript_result_get_global_context(jsResult);
-                GTK.this.jsContext = ctx;
-                if (onContext != null) {
-                    onContext.run();
-                }
-            }
-        };
+        this.pending = new Pending();
         try {
-            // running with WebKit2
-            webKit.webkit_web_view_run_javascript(webView, "undefined", null, onJs, null);
-            onLoad = new OnLoad(webView, libs, window, onPageLoad);
-            g.g_signal_connect_data(webView, "notify::is-loading", onLoad, null, null, 0);
-
-            newWebView = new NewWebView(libs, headless);
-            g.g_signal_connect_data(webView, "create", newWebView, window, null, 0);
-        } catch (LinkageError err) {
-            Show.LOG.log(Level.FINE, "Cannot initialize JavaScript", err);
+            Pointer frame = webKit.webkit_web_view_get_main_frame(webView);
+            Pointer ctx = webKit.webkit_web_frame_get_global_context(frame);
+            this.jsContext = ctx;
+            if (onContext != null) {
+                onContext.run();
+            }
 
             // running with WebKit
             onLoad = new OnLoad(webView, libs, window, onPageLoad);
@@ -236,6 +225,25 @@ final class GTK extends Show implements InvokeLater {
 
             newWebView = new NewWebView(libs, headless);
             g.g_signal_connect_data(webView, "create-web-view", newWebView, window, null, 0);
+        } catch (LinkageError err) {
+            this.onJs = new OnJs() {
+                @Override
+                public void ready(Pointer webView, Pointer gAsyncResult, Pointer userData) {
+                    Pointer jsResult = webKit.webkit_web_view_run_javascript_finish(webView, gAsyncResult, null);
+                    Pointer ctx = webKit.webkit_javascript_result_get_global_context(jsResult);
+                    GTK.this.jsContext = ctx;
+                    if (onContext != null) {
+                        onContext.run();
+                    }
+                }
+            };
+            // running with WebKit2
+            webKit.webkit_web_view_run_javascript(webView, "undefined", null, onJs, null);
+            onLoad = new OnLoad(webView, libs, window, onPageLoad);
+            g.g_signal_connect_data(webView, "notify::is-loading", onLoad, null, null, 0);
+
+            newWebView = new NewWebView(libs, headless);
+            g.g_signal_connect_data(webView, "create", newWebView, window, null, 0);
         }
 
         webKit.webkit_web_view_load_uri(webView, page);
@@ -244,7 +252,6 @@ final class GTK extends Show implements InvokeLater {
 
         onDestroy = new OnDestroy();
         g.g_signal_connect_data(window, "destroy", onDestroy, null, null, 0);
-        pending = new Pending();
         if (!headless) {
             gtk.gtk_widget_show_all(window);
         }
@@ -319,12 +326,23 @@ final class GTK extends Show implements InvokeLater {
         }
 
         public void loadStatus() {
-            int status = libs.webKit.webkit_web_view_is_loading(webView);
-            if (status == 0) {
+            boolean ok;
+            Pointer frame;
+            try {
+                int status = libs.webKit.webkit_web_view_get_load_status(webView);
+                frame = libs.webKit.webkit_web_view_get_main_frame(webView);
+                ok = status == 0;
+            } catch (LinkageError err) {
+                int status = libs.webKit.webkit_web_view_is_loading(webView);
+                frame = null;
+                ok = status == 2;
+            }
+            if (ok) {
                 if (title == null) {
                     title = new Title(webView, null);
                     title.updateTitle();
                     libs.g.g_signal_connect_data(webView, "notify::title", title, null, null, 0);
+                    libs.g.g_signal_connect_data(frame, "notify::title", title, null, null, 0);
                 }
                 if (onPageLoad != null) {
                     onPageLoad.run();
@@ -342,7 +360,12 @@ final class GTK extends Show implements InvokeLater {
             }
 
             public void updateTitle() {
-                String title = libs.webKit.webkit_web_view_get_title(webView);
+                String title;
+                try {
+                    title = libs.webKit.webkit_web_frame_get_title(frame);
+                } catch (LinkageError err) {
+                    title = libs.webKit.webkit_web_view_get_title(webView);
+                }
                 if (title == null) {
                     title = "DukeScript Application";
                 }

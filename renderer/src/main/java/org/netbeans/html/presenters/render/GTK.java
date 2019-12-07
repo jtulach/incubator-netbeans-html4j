@@ -409,32 +409,43 @@ final class GTK extends Show implements InvokeLater {
         }
 
         static <T> T loadLibrary(Class<T> type, boolean allowObjects, Collection<Throwable> errors) {
-            String libName = System.getProperty("com.dukescript.presenters.renderer." + type.getSimpleName());
-            if (libName == null) {
-                if (type == JSC.class) {
-                    libName = "javascriptcoregtk-4.0";
-                } else if (type == GTK.GLib.class) {
-                    libName = "glib-2.0";
-                } else if (type == GTK.G.class) {
-                    libName = "gobject-2.0";
-                } else if (type == GTK.Gdk.class) {
-                    libName = "gtk-3";
-                } else if (type == GTK.Gtk.class) {
-                    libName = "gtk-3";
-                } else if (type == GTK.WebKit.class) {
-                    libName = "webkit2gtk-4.0";
+            List<String> libraryNames = new ArrayList<String>();
+            {
+                String libName = System.getProperty("com.dukescript.presenters.renderer." + type.getSimpleName());
+                if (libName != null) {
+                    libraryNames.add(libName);
                 }
             }
-            try {
-                Object lib = Native.loadLibrary(libName, type, Collections.singletonMap(Library.OPTION_ALLOW_OBJECTS, allowObjects));
-                return type.cast(lib);
-            } catch (LinkageError err) {
-                if (errors != null) {
-                    errors.add(err);
-                    return null;
-                } else {
-                    throw err;
+
+            if (type == JSC.class) {
+                libraryNames.add("javascriptcoregtk-3.0");
+                libraryNames.add("javascriptcoregtk-4.0");
+            } else if (type == GTK.GLib.class) {
+                libraryNames.add("glib-2.0");
+            } else if (type == GTK.G.class) {
+                libraryNames.add("gobject-2.0");
+            } else if (type == GTK.Gdk.class) {
+                libraryNames.add("gtk-3");
+            } else if (type == GTK.Gtk.class) {
+                libraryNames.add("gtk-3");
+            } else if (type == GTK.WebKit.class) {
+                libraryNames.add("webkitgtk-3.0");
+                libraryNames.add("webkit2gtk-4.0");
+            }
+            List<LinkageError> collected = new ArrayList<LinkageError>();
+            for (String libName : libraryNames) {
+                try {
+                    Object lib = Native.loadLibrary(libName, type, Collections.singletonMap(Library.OPTION_ALLOW_OBJECTS, allowObjects));
+                    return type.cast(lib);
+                } catch (LinkageError err) {
+                    collected.add(err);
                 }
+            }
+            if (errors != null) {
+                errors.addAll(collected);
+                return null;
+            } else {
+                throw collected.get(0);
             }
         }
 

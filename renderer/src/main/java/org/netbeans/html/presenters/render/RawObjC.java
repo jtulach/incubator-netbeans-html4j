@@ -24,9 +24,14 @@ import com.sun.jna.ptr.IntByReference;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.c.CContext;
+import org.graalvm.nativeimage.c.function.CEntryPoint;
+import org.graalvm.nativeimage.c.function.CEntryPointLiteral;
 import org.graalvm.nativeimage.c.function.CFunction;
+import org.graalvm.nativeimage.c.function.CFunctionPointer;
 import org.graalvm.nativeimage.c.function.CLibrary;
+import org.graalvm.nativeimage.c.function.InvokeCFunctionPointer;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
 import org.graalvm.word.PointerBase;
@@ -39,10 +44,36 @@ public final class RawObjC implements ObjC {
 
     @CFunction
     private static native PointerBase objc_getClass(CCharPointer name);
+    
+    @CFunction
+    private static native boolean class_addMethod(PointerBase cls, PointerBase selector, PointerBase callback, CCharPointer types);
+
+    interface MethodCallback extends CFunctionPointer {
+        @InvokeCFunctionPointer
+        PointerBase callback(IsolateThread it, PointerBase id, PointerBase selector, Callback imp);
+    }
+    
+    @CEntryPoint
+    static PointerBase methodCallback(IsolateThread it, PointerBase id, PointerBase selector) {
+        System.err.println("in methodCallback");
+        return WordFactory.nullPointer();
+    }
+    
+    private static final CEntryPointLiteral<MethodCallback> METHOD_CALLBACK = CEntryPointLiteral.create(
+        RawObjC.class, "methodCallback", IsolateThread.class, PointerBase.class, PointerBase.class
+    );
 
     @Override
     public boolean class_addMethod(Pointer cls, Pointer name, Callback imp, String types) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        CTypeConversion.CCharPointerHolder cTypes = CTypeConversion.toCString(types);
+        try {
+            PointerBase clsPtr = WordFactory.pointer(Pointer.nativeValue(cls));
+            PointerBase namePtr = WordFactory.pointer(Pointer.nativeValue(name));
+            PointerBase callbackPtr = METHOD_CALLBACK.getFunctionPointer();
+            return class_addMethod(clsPtr, namePtr, callbackPtr, cTypes.get());
+        } finally {
+            cTypes.close();
+        }
     }
 
     @Override
@@ -161,6 +192,14 @@ public final class RawObjC implements ObjC {
                 return objc_msgSend(ptrReceiver, ptrSelector, l0, ptr1, 0);
             }
         }
+        
+        if (arguments.length == 3) {
+            if (arguments[0] instanceof Pointer && arguments[1] == null && arguments[2] instanceof Integer) {
+                PointerBase ptr0 = toPtr((Pointer) arguments[0]);
+                int i2 = (Integer) arguments[2];
+                return objc_msgSend(ptrReceiver, ptrSelector, ptr0, WordFactory.nullPointer(), i2);
+            }
+        }
 
         System.err.println("#########################");
         return objc_msgSend(ptrReceiver, ptrSelector, -1);
@@ -175,9 +214,13 @@ public final class RawObjC implements ObjC {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    
+    @CFunction
+    private static native void objc_registerClassPair(PointerBase cls);
+    
     @Override
     public void objc_registerClassPair(Pointer cls) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        objc_registerClassPair(WordFactory.pointer(Pointer.nativeValue(cls)));
     }
 
     @CFunction

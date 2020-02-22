@@ -43,14 +43,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.glassfish.grizzly.PortRange;
-import org.glassfish.grizzly.http.server.HttpHandler;
-import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.grizzly.http.server.NetworkListener;
-import org.glassfish.grizzly.http.server.Request;
-import org.glassfish.grizzly.http.server.Response;
-import org.glassfish.grizzly.http.server.ServerConfiguration;
-import org.glassfish.grizzly.http.util.HttpStatus;
 import org.netbeans.html.boot.spi.Fn;
 import org.netbeans.html.boot.spi.Fn.Presenter;
 import org.netbeans.html.presenters.spi.ProtoPresenter;
@@ -208,15 +200,13 @@ Executor, Closeable {
         if (port != -1) {
             from = to = port;
         }
-        HttpServer s = HttpServer.createSimpleServer(null, new PortRange(from, to));
-        final ServerConfiguration conf = s.getServerConfiguration();
-        conf.addHttpHandler(r, "/");
+        HttpServer s = HttpServer.createSimpleServer(from, to);
+        s.addHttpHandler(r, "/");
         return s;
     }
     
     private static URI pageURL(String protocol, HttpServer server, final String page) {
-        NetworkListener listener = server.getListeners().iterator().next();
-        int port = listener.getPort();
+        int port = server.getPort();
         try {
             return new URI(protocol + "://localhost:" + port + page);
         } catch (URISyntaxException ex) {
@@ -310,15 +300,15 @@ Executor, Closeable {
         }
     }
     
-    static void cors(Response r) {
-        r.setCharacterEncoding("UTF-8");
-        r.addHeader("Access-Control-Allow-Origin", "*");
-        r.addHeader("Access-Control-Allow-Credentials", "true");
-        r.addHeader("Access-Control-Allow-Headers", "Content-Type");
-        r.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
+    static <Response> void cors(HttpServer<?, Response, ?> s, Response r) {
+        s.setCharacterEncoding(r, "UTF-8");
+        s.addHeader(r, "Access-Control-Allow-Origin", "*");
+        s.addHeader(r, "Access-Control-Allow-Credentials", "true");
+        s.addHeader(r, "Access-Control-Allow-Headers", "Content-Type");
+        s.addHeader(r, "Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
     }
 
-    private final class RootPage extends HttpHandler {
+    private final class RootPage extends HttpServer.Handler {
         private final URL page;
 
         public RootPage(URL page) {
@@ -326,15 +316,15 @@ Executor, Closeable {
         }
         
         @Override
-        public void service(Request rqst, Response rspns) throws Exception {
-            String path = rqst.getRequestURI();
-            cors(rspns);
+        public <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws Exception {
+            String path = server.getRequestURI(rqst);
+            cors(server, rspns);
             if ("/".equals(path) || "index.html".equals(path)) {
                 Reader is;
-                String prefix = "http://" + rqst.getServerName() + ":" + rqst.getServerPort() + "/";
-                Writer w = rspns.getWriter();
-                rspns.setContentType("text/html");
-                final Command cmd = new Command(Browser.this, prefix);
+                String prefix = "http://" + server.getServerName(rqst) + ":" + server.getServerPort(rqst) + "/";
+                Writer w = server.getWriter(rspns);
+                server.setContentType(rspns, "text/html");
+                final Command cmd = new Command(server, Browser.this, prefix);
                 try {
                     is = new InputStreamReader(page.openStream());
                 } catch (IOException ex) {
@@ -379,11 +369,11 @@ Executor, Closeable {
                 is.close();
                 w.close();
             } else if (path.equals("/command.js")) {
-                String id = rqst.getParameter("id");
+                String id = server.getParameter(rqst, "id");
                 Command c = SESSIONS.get(id);
                 if (c == null) {
-                    rspns.getOutputBuffer().write("No command for " + id);
-                    rspns.setStatus(HttpStatus.NOT_FOUND_404);
+                    s.getWriter(rspns).write("No command for " + id);
+                    s.setStatus(rspns, 404);
                     return;
                 }
                 c.service(rqst, rspns);
@@ -396,10 +386,10 @@ Executor, Closeable {
                 try {
                     is = relative.openStream();
                 } catch (FileNotFoundException ex) {
-                    rspns.setStatus(HttpStatus.NOT_FOUND_404);
+                    s.setStatus(rspns, 404);
                     return;
                 }
-                OutputStream out = rspns.getOutputStream();
+                OutputStream out = s.getOutputStream(rspns);
                 for (;;) {
                     int b = is.read();
                     if (b == -1) {
@@ -479,8 +469,9 @@ Executor, Closeable {
         return "org.netbeans.html"; // NOI18N
     }
     
-    private static final class Command extends Object
+    private static final class Command<Request, Response> extends Object
     implements Executor, ThreadFactory {
+        private final HttpServer<Request, Response, ?> server;
         private final Queue<Object> exec;
         private final Browser browser;
         private final String id;
@@ -491,7 +482,8 @@ Executor, Closeable {
         private boolean initialized;
         private final ProtoPresenter presenter;
 
-        Command(Browser browser, String prefix) {
+        Command(HttpServer<Request, Response, ?> s, Browser browser, String prefix) {
+            this.server = s;
             this.RUN = Executors.newSingleThreadExecutor(this);
             this.id = UUID.randomUUID().toString();
             this.exec = new LinkedList<>();
@@ -557,11 +549,11 @@ Executor, Closeable {
         final synchronized void add(Object obj) {
             if (suspended != null) {
                 try {
-                    suspended.getWriter().write(obj.toString());
+                    server.getWriter(suspended).write(obj.toString());
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, null, ex);
                 }
-                suspended.resume();
+                server.resume(suspended);
                 suspended = null;
                 return;
             }
@@ -574,13 +566,13 @@ Executor, Closeable {
                 return o;
             }
             suspended = rspns;
-            rspns.suspend();
+            server.suspend(rspns);
             return null;
         }
         
         void service(Request rqst, Response rspns) throws Exception {
-            final String methodName = rqst.getParameter("name");
-            Writer w = rspns.getWriter();
+            final String methodName = server.getParameter(rqst, "name");
+            Writer w = server.getWriter(rspns);
             if (methodName == null) {
                 if (!initialized) {
                     initialized = true;
@@ -598,7 +590,7 @@ Executor, Closeable {
             } else {
                 List<String> args = new ArrayList<String>();
                 for (;;) {
-                    String p = rqst.getParameter("p" + args.size());
+                    String p = server.getParameter(rqst, "p" + args.size());
                     if (p == null) {
                         break;
                     }

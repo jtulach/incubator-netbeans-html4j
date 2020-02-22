@@ -46,8 +46,6 @@ import org.netbeans.html.json.spi.Technology;
 import org.netbeans.html.json.spi.Transfer;
 import org.netbeans.html.json.tck.KOTest;
 import org.netbeans.html.json.tck.KnockoutTCK;
-import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.grizzly.http.server.ServerConfiguration;
 import org.netbeans.html.ko4j.KO4J;
 import org.openide.util.lookup.ServiceProvider;
 import static org.testng.Assert.assertNotNull;
@@ -113,8 +111,7 @@ public class KoBrowserTest extends KnockoutTCK {
         Class[] arr = (Class[]) loadClass().getDeclaredMethod("tests").invoke(null);
 
         final HttpServer s = Browser.findServer(browserPresenter);
-        ServerConfiguration conf = s.getServerConfiguration();
-        conf.addHttpHandler(new DynamicHTTP(s), "/dynamic");
+        s.addHttpHandler(new DynamicHTTP(s), "/dynamic");
         for (Class c : arr) {
             for (Method m : c.getMethods()) {
                 if (m.getAnnotation(test) != null) {

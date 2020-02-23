@@ -51,6 +51,7 @@ public class SimpleServerTest {
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
                 assertEquals(server.getServerName(rqst), "localhost", "Connecting from localhost");
                 assertEquals(server.getServerPort(rqst), server.getPort(), "Connecting via local port");
+                assertEquals(server.getMethod(rqst), "GET", "Requesting GET");
 
                 server.setCharacterEncoding(rspns, "UTF-8");
                 server.setContentType(rspns, "text/x-test");

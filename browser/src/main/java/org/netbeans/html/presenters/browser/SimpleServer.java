@@ -113,7 +113,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     String getMethod(Req r) {
-        throw new UnsupportedOperationException();
+        return r.justHead ? "HEAD" : "GET";
     }
 
     @Override
@@ -178,13 +178,15 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         final int hostPort;
         final Map<String, ? extends Object> args;
         final String header;
+        final boolean justHead;
 
-        Req(String url, Map<String, ? extends Object> args, String host, int port, String header) {
+        Req(String url, Map<String, ? extends Object> args, String host, int port, String header, boolean justHead) {
             this.url = url;
             this.hostName = host;
             this.hostPort = port;
             this.args = args;
             this.header = header;
+            this.justHead = justHead;
         }
     }
 
@@ -356,7 +358,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             for (Map.Entry<String, Handler> entry : maps.entrySet()) {
                 if (url.startsWith(entry.getKey())) {
                     final Handler h = entry.getValue();
-                    Req req = new Req(url, args, host, port, header);
+                    Req req = new Req(url, args, host, port, header, justHead);
                     Res res = new Res();
                     UnknownPageRequest upr = UnknownPageRequest.create(new HeaderProvider() {
                         @Override

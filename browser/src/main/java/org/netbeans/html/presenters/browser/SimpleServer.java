@@ -164,8 +164,8 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    void addHeader(Res r, String accessControlAllowOrigin, String string) {
-        throw new UnsupportedOperationException();
+    void addHeader(Res r, String name, String value) {
+        r.headers.put(name, value);
     }
 
     @Override
@@ -192,6 +192,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
         final ByteArrayOutputStream os = new ByteArrayOutputStream();
         final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
+        final Map<String,String> headers = new LinkedHashMap<>();
         String contentType;
         int status;
     }
@@ -364,6 +365,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             if (res.contentType != null) {
                                 response.setMimeType(res.contentType);
                             }
+                            response.setHeaders(res.headers);
                         }
                     }, new ContentProvider() {
                         @Override
@@ -528,19 +530,20 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             if (bb != null) {
                 header = new Header(url, context, langs);
 
+                Map<String,String> headerAttrs = Collections.emptyMap();
                 String mime = upr.mimeType;
                 if (mime == null) {
-                    HeaderImpl map = new HeaderImpl();
-                    Response response = new Response(map);
+                    Response response = new Response();
                     upr.header.replyHeader(header, response);
+                    headerAttrs = response.headers;
 
-                    if (map.redirect != null) {
-                        Request req = findRequest(map.redirect, map.args, "", justHead);
+                    if (response.redirect != null) {
+                        Request req = findRequest(response.redirect, response.args, "", justHead);
                         key.attach(req);
                         return;
                     }
 
-                    mime = map.mimeType;
+                    mime = response.mimeType;
                 }
                 if (mime == null) {
                     mime = "content/unknown"; // NOI18N
@@ -555,6 +558,9 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 bb.put(date(null));
                 bb.put("\r\n".getBytes());
                 bb.put(("Content-Type: " + mime + "\r\n").getBytes());
+                for (Map.Entry<String,String> entry : headerAttrs.entrySet()) {
+                    bb.put((entry.getKey() + ":" + entry.getValue() + "\r\n").getBytes());
+                }
                 bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
                 bb.put("\r\n".getBytes());
                 bb.flip();
@@ -666,36 +672,23 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         }
     } // end of MsgRequest
 
-    static final class Response {
-
-        private final HeaderImpl map;
-
-        Response(HeaderImpl map) {
-            this.map = map;
-        }
-
-        public void setMimeType(String mime) {
-            map.setMimeType(mime);
-        }
-
-        public void redirect(String redirect, Map<String, ? extends Object> args) {
-            map.redirect(redirect, args);
-        }
-    }
-
-    static class HeaderImpl {
-
+    static class Response {
         String mimeType;
         String redirect;
         Map<String, ? extends Object> args;
+        Map<String, String> headers;
 
-        public void setMimeType(String mimeType) {
+        void setMimeType(String mimeType) {
             this.mimeType = mimeType;
         }
 
-        public void redirect(String page, Map<String, ? extends Object> args) {
+        void redirect(String page, Map<String, ? extends Object> args) {
             this.redirect = page;
             this.args = args;
+        }
+
+        void setHeaders(Map<String, String> headers) {
+            this.headers = headers;
         }
     }
 

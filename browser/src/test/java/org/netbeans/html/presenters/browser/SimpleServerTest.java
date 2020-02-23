@@ -54,6 +54,7 @@ public class SimpleServerTest {
 
                 server.setCharacterEncoding(rspns, "UTF-8");
                 server.setContentType(rspns, "text/x-test");
+                Browser.cors(server, rspns);
                 try (Writer w = server.getWriter(rspns)) {
                     final String n = server.getParameter(rqst, "name");
                     final String reply;
@@ -95,5 +96,7 @@ public class SimpleServerTest {
 
         String txt = new String(arr, 0, len, StandardCharsets.UTF_8);
         assertEquals(txt, msg, "Message from the handler delivered");
+
+        assertEquals(conn.getHeaderField("Access-Control-Allow-Origin"), "*");
     }
 }

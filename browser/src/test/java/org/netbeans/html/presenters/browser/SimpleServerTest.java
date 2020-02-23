@@ -20,6 +20,7 @@ package org.netbeans.html.presenters.browser;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -49,25 +50,37 @@ public class SimpleServerTest {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
                 try (Writer w = server.getWriter(rspns)) {
-                    w.write("Ahoj!");
+                    final String reply;
+                    switch (server.getRequestURI(rqst)) {
+                        case "/reply/hi": reply = "Ahoj!"; break;
+                        case "/reply/tchus": reply = "Ciao!"; break;
+                        default: reply = "What?";
+                    }
+                    w.write(reply);
                 }
             }
-        }, "/hi");
+        }, "/reply");
         server.start();
 
         int realPort = server.getPort();
         assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
 
-        URL url = new URL("http://localhost:" + realPort + "/hi");
+        final String baseUri = "http://localhost:" + realPort;
+        assertURL("Ahoj!", baseUri, "/reply/hi");
+        assertURL("Ciao!", baseUri, "/reply/tchus");
+
+        server.shutdownNow();
+
+    }
+
+    private static void assertURL(String msg, String baseUri, final String path) throws IOException, MalformedURLException {
+        URL url = new URL(baseUri + path);
         URLConnection conn = url.openConnection();
         byte[] arr = new byte[8192];
         int len = conn.getInputStream().read(arr);
         assertNotEquals(len, -1, "Something shall be read");
 
         String txt = new String(arr, 0, len, StandardCharsets.UTF_8);
-
-        server.shutdownNow();
-
-        assertEquals(txt, "Ahoj!", "Message from the handler delivered");
+        assertEquals(txt, msg, "Message from the handler delivered");
     }
 }

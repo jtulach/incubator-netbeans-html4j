@@ -24,15 +24,12 @@ import java.io.Reader;
 import java.io.Writer;
 
 abstract class HttpServer<Request, Response, WebSocket> {
-
-    static HttpServer<?,?,?> createSimpleServer(int from, int to) {
-        return new GrizzlyServer(from, to);
-    }
-
+    abstract void init(int from, int to) throws IOException;
+    abstract void start() throws IOException;
     abstract void shutdownNow();
     abstract void addHttpHandler(Handler h, String path);
     abstract int getPort();
-    abstract void start() throws IOException;
+
     abstract String getRequestURI(Request r);
     abstract String getServerName(Request r);
     abstract int getServerPort(Request r);

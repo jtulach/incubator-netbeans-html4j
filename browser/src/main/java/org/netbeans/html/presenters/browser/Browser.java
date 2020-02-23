@@ -41,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.html.boot.spi.Fn;
@@ -68,10 +69,11 @@ Executor, Closeable {
     static final Logger LOG = Logger.getLogger(Browser.class.getName());
     private final Map<String,Command> SESSIONS = new HashMap<String, Command>();
     private final String app;
-    private HttpServer s;
+    private HttpServer server;
     private Runnable onPageLoad;
     private Command current;
     private final Config config;
+    private final Supplier<HttpServer<?, ?, ?>> serverProvider;
 
     /** Default constructor. Reads configuration from properties. The actual browser to
      * be launched can be influenced by value of
@@ -104,10 +106,11 @@ Executor, Closeable {
      * @param config the configuration
      */
     public Browser(Config config) {
-        this(findCalleeClassName(), config);
+        this(findCalleeClassName(), config, null);
     }
-    
-    Browser(String app, Config config) {
+
+    Browser(String app, Config config, Supplier<HttpServer<?,?,?>> serverProvider) {
+        this.serverProvider = serverProvider != null ? serverProvider : GrizzlyServer::new;
         this.app = app;
         this.config = new Config(config);
     }
@@ -119,11 +122,13 @@ Executor, Closeable {
 
     @Override
     public void close() throws IOException {
-        s.shutdownNow();
+        if (server != null) {
+            server.shutdownNow();
+        }
     }
 
     HttpServer server() {
-        return s;
+        return server;
     }
 
     static HttpServer findServer(Object obj) {
@@ -192,19 +197,7 @@ Executor, Closeable {
     public void flush() throws IOException {
         throw new UnsupportedOperationException();
     }
-    
-    private static HttpServer server(RootPage r, Config config) {
-        int from = 8080;
-        int to = 65535;
-        int port = config.getPort();
-        if (port != -1) {
-            from = to = port;
-        }
-        HttpServer s = HttpServer.createSimpleServer(from, to);
-        s.addHttpHandler(r, "/");
-        return s;
-    }
-    
+
     private static URI pageURL(String protocol, HttpServer server, final String page) {
         int port = server.getPort();
         try {
@@ -218,16 +211,26 @@ Executor, Closeable {
     public final void displayPage(URL page, Runnable onPageLoad) {
         try {
             this.onPageLoad = onPageLoad;
-            s = server(new RootPage(page), config);
-            s.start();
-            show(pageURL("http", s, "/"));
+            this.server = serverProvider.get();
+            int from = 8080;
+            int to = 65535;
+            int port = config.getPort();
+            if (port != -1) {
+                from = to = port;
+            }
+            server.init(from, to);
+
+            this.server.addHttpHandler(new RootPage(page), "/");
+            server.start();
+
+            show(pageURL("http", server, "/"));
         } catch (IOException ex) {
             Logger.getLogger(Browser.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     /** Parameters to configure {@link Browser}.
-     * Create an instance and pass it 
+     * Create an instance and pass it
      * to {@link Browser#Browser(org.netbeans.html.presenters.browser.Browser.Config) }
      * constructor.
      */
@@ -279,7 +282,7 @@ Executor, Closeable {
             this.port = port;
             return this;
         }
-        
+
         final String getBrowser() {
             if (browser != null) {
                 return browser;
@@ -299,7 +302,7 @@ Executor, Closeable {
             }
         }
     }
-    
+
     static <Response> void cors(HttpServer<?, Response, ?> s, Response r) {
         s.setCharacterEncoding(r, "UTF-8");
         s.addHeader(r, "Access-Control-Allow-Origin", "*");
@@ -314,7 +317,7 @@ Executor, Closeable {
         public RootPage(URL page) {
             this.page = page;
         }
-        
+
         @Override
         public <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
             String path = server.getRequestURI(rqst);
@@ -372,8 +375,8 @@ Executor, Closeable {
                 String id = server.getParameter(rqst, "id");
                 Command c = SESSIONS.get(id);
                 if (c == null) {
-                    s.getWriter(rspns).write("No command for " + id);
-                    s.setStatus(rspns, 404);
+                    server.getWriter(rspns).write("No command for " + id);
+                    server.setStatus(rspns, 404);
                     return;
                 }
                 c.service(rqst, rspns);
@@ -386,10 +389,10 @@ Executor, Closeable {
                 try {
                     is = relative.openStream();
                 } catch (FileNotFoundException ex) {
-                    s.setStatus(rspns, 404);
+                    server.setStatus(rspns, 404);
                     return;
                 }
-                OutputStream out = s.getOutputStream(rspns);
+                OutputStream out = server.getOutputStream(rspns);
                 for (;;) {
                     int b = is.read();
                     if (b == -1) {
@@ -468,7 +471,7 @@ Executor, Closeable {
         }
         return "org.netbeans.html"; // NOI18N
     }
-    
+
     private static final class Command<Request, Response> extends Object
     implements Executor, ThreadFactory {
         private final HttpServer<Request, Response, ?> server;
@@ -512,7 +515,7 @@ Executor, Closeable {
         public final void execute(final Runnable r) {
             runSafe(r, true);
         }
-        
+
         final void runSafe(final Runnable r, final boolean context) {
             class Wrap implements Runnable {
                 @Override
@@ -545,7 +548,7 @@ Executor, Closeable {
                 RUN.execute(w);
             }
         }
-        
+
         final synchronized void add(Object obj) {
             if (suspended != null) {
                 try {
@@ -559,7 +562,7 @@ Executor, Closeable {
             }
             exec.add(obj);
         }
-        
+
         private synchronized Object take(Response rspns) {
             Object o = exec.poll();
             if (o != null) {
@@ -569,7 +572,7 @@ Executor, Closeable {
             server.suspend(rspns);
             return null;
         }
-        
+
         void service(Request rqst, Response rspns) throws IOException {
             final String methodName = server.getParameter(rqst, "name");
             Writer w = server.getWriter(rspns);
@@ -645,7 +648,7 @@ Executor, Closeable {
             }
             return Level.FINE;
         }
-        
+
         void log(int priority, String msg, Object... args) {
             Level level = findLevel(priority);
 
@@ -668,5 +671,5 @@ Executor, Closeable {
         public void displayPage(URL url, Runnable r) {
             throw new UnsupportedOperationException(url.toString());
         }
-    } // end of Command  
+    } // end of Command
 }

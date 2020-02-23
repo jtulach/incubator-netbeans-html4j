@@ -28,9 +28,10 @@ import org.glassfish.grizzly.http.server.Request;
 import org.glassfish.grizzly.http.server.Response;
 
 final class GrizzlyServer extends HttpServer<Request, Response, Object> {
-    private final org.glassfish.grizzly.http.server.HttpServer server;
+    private org.glassfish.grizzly.http.server.HttpServer server;
 
-    public GrizzlyServer(int from, int to) {
+    @Override
+    void init(int from, int to) throws IOException {
         server = org.glassfish.grizzly.http.server.HttpServer.createSimpleServer(null, new PortRange(from, to));
     }
 

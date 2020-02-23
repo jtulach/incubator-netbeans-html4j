@@ -55,8 +55,8 @@ import java.util.regex.Pattern;
 final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, Object> implements Runnable {
 
     private Map<String, Handler> maps = new LinkedHashMap<>();
-    private final int max;
-    private final int min;
+    private int max;
+    private int min;
     private ServerSocketChannel server;
     private Selector connection;
     private Thread processor;
@@ -65,9 +65,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     private static final Pattern PATTERN_LANGS = Pattern.compile(".*^Accept-Language:(.*)$", Pattern.MULTILINE);
     static final Logger LOG = Logger.getLogger(SimpleServer.class.getName());
 
-    SimpleServer(int min, int max) throws IOException {
-        this.min = min;
-        this.max = max;
+    SimpleServer() {
     }
 
     @Override
@@ -79,9 +77,14 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    void start() throws IOException {
+    void init(int from, int to) throws IOException {
         connection = Selector.open();
+        this.min = from;
+        this.max = to;
+    }
 
+    @Override
+    void start() throws IOException {
         LOG.log(Level.INFO, "Listening for HTTP connections on port {0}", getServer().socket().getLocalPort());
         processor = new Thread(this, "HTTP server");
         processor.start();
@@ -435,18 +438,21 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
      */
     public ServerSocketChannel getServer() throws IOException {
         if (server == null) {
-            server = ServerSocketChannel.open();
-            server.configureBlocking(false);
+            ServerSocketChannel s = ServerSocketChannel.open();
+            s.configureBlocking(false);
 
             Random random = new Random();
-            for (int i = min; i < max; i++) {
-                int at = min + random.nextInt(max - min);
+            for (int i = min; i <= max; i++) {
+                int at = min + random.nextInt(max - min + 1);
                 InetSocketAddress address = new InetSocketAddress(at);
                 try {
-                    server.socket().bind(address);
+                    s.socket().bind(address);
                 } catch (IOException ex) {
                     LOG.log(Level.FINE, "Cannot bind to " + at, ex);
+                    continue;
                 }
+                server = s;
+                break;
             }
 
             server.register(this.connection, SelectionKey.OP_ACCEPT);

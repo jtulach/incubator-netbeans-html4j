@@ -23,18 +23,28 @@ import java.io.Writer;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Supplier;
 import static org.testng.Assert.*;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class SimpleServerTest {
     public SimpleServerTest() {
     }
 
-    @Test
-    public void testConnectionToTheServer() throws IOException {
+    @DataProvider(name = "serverFactories")
+    public static Object[][] serverFactories() {
+        Supplier<HttpServer<?,?,?>> simple = SimpleServer::new;
+        Supplier<HttpServer<?,?,?>> grizzly = GrizzlyServer::new;
+        return new Object[][]{{simple}, {grizzly}};
+    }
+
+    @Test(dataProvider = "serverFactories")
+    public void testConnectionToTheServer(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
         int min = 42343;
         int max = 49343;
-        SimpleServer server = new SimpleServer(min, max);
+        HttpServer<?, ?, ?> server = serverProvider.get();
+        server.init(min, max);
         server.addHttpHandler(new HttpServer.Handler() {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
@@ -46,7 +56,7 @@ public class SimpleServerTest {
         server.start();
 
         int realPort = server.getPort();
-        assertTrue(realPort < max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
+        assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
 
         URL url = new URL("http://localhost:" + realPort + "/hi");
         URLConnection conn = url.openConnection();

@@ -50,10 +50,11 @@ public class SimpleServerTest {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
                 try (Writer w = server.getWriter(rspns)) {
+                    final String n = server.getParameter(rqst, "name");
                     final String reply;
                     switch (server.getRequestURI(rqst)) {
-                        case "/reply/hi": reply = "Ahoj!"; break;
-                        case "/reply/tchus": reply = "Ciao!"; break;
+                        case "/reply/hi": reply = "Ahoj " + n + "!"; break;
+                        case "/reply/tchus": reply = "Ciao " + n + "!"; break;
                         default: reply = "What?";
                     }
                     w.write(reply);
@@ -66,8 +67,8 @@ public class SimpleServerTest {
         assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
 
         final String baseUri = "http://localhost:" + realPort;
-        assertURL("Ahoj!", baseUri, "/reply/hi");
-        assertURL("Ciao!", baseUri, "/reply/tchus");
+        assertURL("Ahoj John!", baseUri, "/reply/hi?name=John");
+        assertURL("Ciao John!", baseUri, "/reply/tchus?name=John");
 
         server.shutdownNow();
 

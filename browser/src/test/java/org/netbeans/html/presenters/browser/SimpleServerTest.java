@@ -18,6 +18,7 @@
  */
 package org.netbeans.html.presenters.browser;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Writer;
 import java.net.MalformedURLException;
@@ -99,5 +100,76 @@ public class SimpleServerTest {
         assertEquals(txt, msg, "Message from the handler delivered");
 
         assertEquals(conn.getHeaderField("Access-Control-Allow-Origin"), "*");
+    }
+
+    @Test(dataProvider = "serverFactories")
+    public void testHeadersAndBody(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        int min = 42343;
+        int max = 49343;
+        HttpServer<?, ?, ?> server = serverProvider.get();
+        server.init(min, max);
+        server.addHttpHandler(new HttpServer.Handler() {
+            @Override
+            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+
+                BufferedReader r = new BufferedReader(server.getReader(rqst));
+                StringBuilder sb = new StringBuilder();
+                for (;;) {
+                    String l = r.readLine();
+                    if (l == null) {
+                        break;
+                    }
+                    sb.append(l);
+                }
+
+                server.setCharacterEncoding(rspns, "UTF-8");
+                server.setContentType(rspns, "text/plain");
+                try (Writer w = server.getWriter(rspns)) {
+                    final String action = server.getHeader(rqst, "action");
+                    assertNotNull(action, "action is specified");
+                    String reply;
+                    switch (action) {
+                        case "reverse": reply = sb.reverse().toString(); break;
+                        case "upper": reply = sb.toString().toUpperCase(); break;
+                        default: reply = "What?";
+                    }
+                    w.write(reply);
+                }
+            }
+        }, "/action");
+        server.start();
+
+        int realPort = server.getPort();
+        assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
+
+        final String baseUri = "http://localhost:" + realPort;
+        assertReadURL("reverse", "Ahoj", baseUri, "johA");
+        assertReadURL("upper", "Ahoj", baseUri, "AHOJ");
+
+        server.shutdownNow();
+
+    }
+
+    private static void assertReadURL(String action, String data, String baseUri, final String exp) throws IOException, MalformedURLException {
+        URL url = new URL(baseUri + "/action");
+        URLConnection conn = url.openConnection();
+        conn.addRequestProperty("action", action);
+        conn.setDoOutput(true);
+        conn.connect();
+        conn.getOutputStream().write(data.getBytes());
+
+
+        final String contentAndAttribs = conn.getContentType();
+        assertNotNull(contentAndAttribs, "Content-Type specified");
+        int semicolon = contentAndAttribs.indexOf(';');
+        final String content = semicolon == -1 ? contentAndAttribs : contentAndAttribs.substring(0, semicolon);
+        assertEquals(content, "text/plain");
+
+        byte[] arr = new byte[8192];
+        int len = conn.getInputStream().read(arr);
+        assertNotEquals(len, -1, "Something shall be read");
+
+        String txt = new String(arr, 0, len, StandardCharsets.UTF_8);
+        assertEquals(txt, exp, "Message from the handler delivered");
     }
 }

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.InetSocketAddress;
@@ -61,7 +62,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     private Selector connection;
     private Thread processor;
 
-    private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET) */([^ \\?]*)(\\?[^ ]*)?");
+    private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET|POST|PUT|DELETE) */([^ \\?]*)(\\?[^ ]*)?");
     private static final Pattern PATTERN_LANGS = Pattern.compile(".*^Accept-Language:(.*)$", Pattern.MULTILINE);
     private static final Pattern PATTERN_HOST = Pattern.compile(".*^Host: *(.*):([0-9]+)$", Pattern.MULTILINE);
     static final Logger LOG = Logger.getLogger(SimpleServer.class.getName());
@@ -118,12 +119,27 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     Reader getReader(Req r) {
-        throw new UnsupportedOperationException();
+        int emptyLine = r.header.indexOf("\r\n\r\n");
+        String rest;
+        if (emptyLine == -1) {
+            rest = "";
+        } else {
+            rest = r.header.substring(emptyLine + 4);
+        }
+        return new StringReader(rest);
     }
 
     @Override
-    String getHeader(Req r, String substring) {
-        throw new UnsupportedOperationException();
+    String getHeader(Req r, String key) {
+        for (String l : r.header.split("\r\n")) {
+            if (l.isEmpty()) {
+                break;
+            }
+            if (l.startsWith(key + ":")) {
+                return l.substring(key.length() + 1).trim();
+            }
+        }
+        return null;
     }
 
     @Override

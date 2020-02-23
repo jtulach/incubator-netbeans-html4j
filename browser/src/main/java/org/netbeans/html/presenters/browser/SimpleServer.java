@@ -164,12 +164,12 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     void suspend(Res r) {
-        throw new UnsupportedOperationException();
+        r.suspended = true;
     }
 
     @Override
     void resume(Res r) {
-        throw new UnsupportedOperationException();
+        r.suspended = false;
     }
 
     @Override
@@ -213,6 +213,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         final Map<String,String> headers = new LinkedHashMap<>();
         String contentType;
         int status;
+        boolean suspended;
     }
 
     /**
@@ -389,6 +390,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         @Override
                         public void replyTo(Header header, SocketChannel ch, SelectionKey key) throws IOException {
                             if (key.attachment() == null) {
+                                if (res.suspended) {
+                                    ch.write(ByteBuffer.allocate(0));
+                                    return;
+                                }
                                 ByteBuffer out = ByteBuffer.wrap(res.os.toByteArray());
                                 key.attach(out);
                             }

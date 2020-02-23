@@ -25,6 +25,11 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import static org.testng.Assert.*;
 import org.testng.annotations.DataProvider;
@@ -172,4 +177,42 @@ public class SimpleServerTest {
         String txt = new String(arr, 0, len, StandardCharsets.UTF_8);
         assertEquals(txt, exp, "Message from the handler delivered");
     }
+
+    @Test(dataProvider = "serverFactories")
+    public void testWaitForData(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
+        int min = 32343;
+        int max = 33343;
+        HttpServer<?, ?, ?> server = serverProvider.get();
+        server.init(min, max);
+
+        class HandlerImpl extends HttpServer.Handler {
+            @Override
+            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+                server.setCharacterEncoding(rspns, "UTF-8");
+                server.setContentType(rspns, "text/x-test");
+                Browser.cors(server, rspns);
+                server.suspend(rspns);
+                exec.schedule((Callable <Void>) () -> {
+                    try (Writer w = server.getWriter(rspns)) {
+                        w.write("Finished!");
+                        server.resume(rspns);
+                        return null;
+                    }
+                }, 1, TimeUnit.SECONDS);
+            }
+        }
+        server.addHttpHandler(new HandlerImpl(), "/async");
+        server.start();
+
+        int realPort = server.getPort();
+        assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
+
+        final String baseUri = "http://localhost:" + realPort;
+        assertURL("Finished!", baseUri, "/async");
+
+        exec.shutdown();
+        server.shutdownNow();
+    }
+
 }

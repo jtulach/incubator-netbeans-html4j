@@ -44,7 +44,7 @@ final class DynamicHTTP extends Handler {
     }
     
     @Override
-    public <Request, Response> void service(HttpServer<Request, Response, ?> s, Request request, Response response) throws Exception {
+    public <Request, Response> void service(HttpServer<Request, Response, ?> s, Request request, Response response) throws IOException {
         if ("/dynamic".equals(s.getRequestURI(request))) {
             String mimeType = s.getParameter(request, "mimeType");
             List<String> params = new ArrayList<String>();

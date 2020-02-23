@@ -316,7 +316,7 @@ Executor, Closeable {
         }
         
         @Override
-        public <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws Exception {
+        public <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
             String path = server.getRequestURI(rqst);
             cors(server, rspns);
             if ("/".equals(path) || "index.html".equals(path)) {
@@ -570,7 +570,7 @@ Executor, Closeable {
             return null;
         }
         
-        void service(Request rqst, Response rspns) throws Exception {
+        void service(Request rqst, Response rspns) throws IOException {
             final String methodName = server.getParameter(rqst, "name");
             Writer w = server.getWriter(rspns);
             if (methodName == null) {

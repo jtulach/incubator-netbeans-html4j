@@ -30,7 +30,7 @@ abstract class HttpServer<Request, Response, WebSocket> {
     }
 
     abstract void shutdownNow();
-    abstract void addHttpHandler(Handler r, String string);
+    abstract void addHttpHandler(Handler h, String path);
     abstract int getPort();
     abstract void start() throws IOException;
     abstract String getRequestURI(Request r);
@@ -53,7 +53,7 @@ abstract class HttpServer<Request, Response, WebSocket> {
     abstract <WebSocket> void send(WebSocket socket, String s);
 
     static abstract class Handler {
-        abstract <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws Exception;
+        abstract <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException;
     }
 
     static abstract class WebSocketApplication {

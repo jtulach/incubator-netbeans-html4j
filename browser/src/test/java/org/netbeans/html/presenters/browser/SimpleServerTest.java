@@ -49,6 +49,11 @@ public class SimpleServerTest {
         server.addHttpHandler(new HttpServer.Handler() {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+                assertEquals(server.getServerName(rqst), "localhost", "Connecting from localhost");
+                assertEquals(server.getServerPort(rqst), server.getPort(), "Connecting via local port");
+
+                server.setCharacterEncoding(rspns, "UTF-8");
+                server.setContentType(rspns, "text/x-test");
                 try (Writer w = server.getWriter(rspns)) {
                     final String n = server.getParameter(rqst, "name");
                     final String reply;
@@ -77,6 +82,13 @@ public class SimpleServerTest {
     private static void assertURL(String msg, String baseUri, final String path) throws IOException, MalformedURLException {
         URL url = new URL(baseUri + path);
         URLConnection conn = url.openConnection();
+
+        final String contentAndAttribs = conn.getContentType();
+        assertNotNull(contentAndAttribs, "Content-Type specified");
+        int semicolon = contentAndAttribs.indexOf(';');
+        final String content = semicolon == -1 ? contentAndAttribs : contentAndAttribs.substring(0, semicolon);
+        assertEquals(content, "text/x-test");
+
         byte[] arr = new byte[8192];
         int len = conn.getInputStream().read(arr);
         assertNotEquals(len, -1, "Something shall be read");

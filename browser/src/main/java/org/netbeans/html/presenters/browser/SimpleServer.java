@@ -54,7 +54,7 @@ import java.util.regex.Pattern;
 
 final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, Object> implements Runnable {
 
-    private Map<String, Handler> maps = new LinkedHashMap<>();
+    private final Map<String, Handler> maps = new LinkedHashMap<>();
     private int max;
     private int min;
     private ServerSocketChannel server;
@@ -63,6 +63,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET) */([^ \\?]*)(\\?[^ ]*)?");
     private static final Pattern PATTERN_LANGS = Pattern.compile(".*^Accept-Language:(.*)$", Pattern.MULTILINE);
+    private static final Pattern PATTERN_HOST = Pattern.compile(".*^Host: *(.*):([0-9]+)$", Pattern.MULTILINE);
     static final Logger LOG = Logger.getLogger(SimpleServer.class.getName());
 
     SimpleServer() {
@@ -97,12 +98,12 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     String getServerName(Req r) {
-        throw new UnsupportedOperationException();
+        return r.hostName;
     }
 
     @Override
     int getServerPort(Req r) {
-        throw new UnsupportedOperationException();
+        return r.hostPort;
     }
 
     @Override
@@ -156,8 +157,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    void setCharacterEncoding(Res r, String utF8) {
-        throw new UnsupportedOperationException();
+    void setCharacterEncoding(Res r, String encoding) {
+        if (!encoding.equals("UTF-8")) {
+            throw new IllegalStateException(encoding);
+        }
     }
 
     @Override
@@ -171,11 +174,15 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     static final class Req {
         final String url;
+        final String hostName;
+        final int hostPort;
         final Map<String, ? extends Object> args;
         final String header;
 
-        Req(String url, Map<String, ? extends Object> args, String header) {
+        Req(String url, Map<String, ? extends Object> args, String host, int port, String header) {
             this.url = url;
+            this.hostName = host;
+            this.hostPort = port;
             this.args = args;
             this.header = header;
         }
@@ -332,18 +339,31 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             if (langs != null) {
                 LOG.log(Level.FINE, "Accepted languages {0}", langs);
             }
+            Matcher m2 = PATTERN_HOST.matcher(header);
+            String host = null;
+            int port = -1;
+            if (m2.find()) {
+                host = m2.group(1);
+                port = Integer.parseInt(m2.group(2));
+            }
+            if (host != null) {
+                LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
+            }
 
             String pref = url;
             int last = pref.length() - 1;
             for (Map.Entry<String, Handler> entry : maps.entrySet()) {
                 if (url.startsWith(entry.getKey())) {
                     final Handler h = entry.getValue();
-                    Req req = new Req(url, args, header);
+                    Req req = new Req(url, args, host, port, header);
                     Res res = new Res();
                     UnknownPageRequest upr = UnknownPageRequest.create(new HeaderProvider() {
                         @Override
                         public void replyHeader(Header header, Response response) throws IOException {
                             h.service(SimpleServer.this, req, res);
+                            if (res.contentType != null) {
+                                response.setMimeType(res.contentType);
+                            }
                         }
                     }, new ContentProvider() {
                         @Override

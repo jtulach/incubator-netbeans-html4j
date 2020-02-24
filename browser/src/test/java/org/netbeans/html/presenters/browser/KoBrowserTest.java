@@ -32,7 +32,6 @@ import java.util.concurrent.Executor;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import net.java.html.BrwsrCtx;
-import net.java.html.js.JavaScriptBody;
 import org.netbeans.html.boot.spi.Fn;
 import org.netbeans.html.context.spi.Contexts;
 import org.netbeans.html.json.spi.Technology;
@@ -120,20 +119,10 @@ public class KoBrowserTest extends KnockoutTCK {
         }
     }
 
-    @JavaScriptBody(args = {  }, body = 
-          "var h;"
-        + "if (!!window && !!window.location && !!window.location.href)\n"
-        + "  h = window.location.href;\n"
-        + "else "
-        + "  h = null;"
-        + "return h;\n"
-    )
-    private static native String findBaseURL();
-    
     @Override
     public URI prepareURL(String content, String mimeType, String[] parameters) {
         try {
-            final URL baseURL = new URL(findBaseURL());
+            final URL baseURL = new URL(JavaScriptUtilities.findBaseURL());
             StringBuilder sb = new StringBuilder();
             sb.append("/dynamic?mimeType=").append(mimeType);
             for (int i = 0; i < parameters.length; i++) {

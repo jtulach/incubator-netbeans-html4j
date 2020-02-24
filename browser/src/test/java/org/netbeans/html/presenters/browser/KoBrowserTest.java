@@ -21,23 +21,17 @@ package org.netbeans.html.presenters.browser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import net.java.html.BrwsrCtx;
-import net.java.html.boot.BrowserBuilder;
 import net.java.html.js.JavaScriptBody;
 import org.netbeans.html.boot.spi.Fn;
 import org.netbeans.html.context.spi.Contexts;
@@ -52,105 +46,27 @@ import org.testng.annotations.Factory;
 
 @ServiceProvider(service = KnockoutTCK.class)
 public class KoBrowserTest extends KnockoutTCK {
-    private static final Logger LOG = Logger.getLogger(KoBrowserTest.class.getName());
-    private static Class<?> browserClass;
-    private static Fn.Presenter browserPresenter;
-    
     public KoBrowserTest() {
     }
 
-    static Object[] showBrwsr(URI uri, String cmd) throws IOException {
-        LOG.log(Level.INFO, "Showing {0}", uri);
-        if (cmd == null) {
-            try {
-                LOG.log(Level.INFO, "Trying Desktop.browse on {0} {2} by {1}", new Object[]{
-                    System.getProperty("java.vm.name"),
-                    System.getProperty("java.vm.vendor"),
-                    System.getProperty("java.vm.version"),});
-                java.awt.Desktop.getDesktop().browse(uri);
-                LOG.log(Level.INFO, "Desktop.browse successfully finished");
-                return null;
-            } catch (UnsupportedOperationException ex) {
-                LOG.log(Level.INFO, "Desktop.browse not supported: {0}", ex.getMessage());
-                LOG.log(Level.FINE, null, ex);
-            }
-        }
-        {
-            String cmdName = cmd == null ? "xdg-open" : cmd;
-            String[] cmdArr = {
-                cmdName, uri.toString()
-            };
-            LOG.log(Level.INFO, "Launching {0}", Arrays.toString(cmdArr));
-            final Process process = Runtime.getRuntime().exec(cmdArr);
-            return new Object[]{process, null};
-        }
-    }
-   
     @Factory public static Object[] compatibilityTests() throws Exception {
         Browser.LOG.setLevel(Level.FINE);
         Browser.LOG.addHandler(new ConsoleHandler());
-        
-        final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser("KoBrowserTest", new Browser.Config(), null)).
-            loadClass(KoBrowserTest.class).
-            loadPage("empty.html").
-            invoke("initialized");
-
-        Executors.newSingleThreadExecutor().submit(new Runnable() {
-            @Override
-            public void run() {
-                bb.showAndWait();
-            }
-        });
 
         List<Object> res = new ArrayList<Object>();
-        Class<? extends Annotation> test = 
-            loadClass().getClassLoader().loadClass(KOTest.class.getName()).
-            asSubclass(Annotation.class);
-
-        Class[] arr = (Class[]) loadClass().getDeclaredMethod("tests").invoke(null);
-
+        Fn.Presenter browserPresenter = ServerFactories.collect("KoBrowserTest", "None", null, res, KOTest.class, KnockoutTCK::testClasses);
         final HttpServer s = Browser.findServer(browserPresenter);
         s.addHttpHandler(new DynamicHTTP(s), "/dynamic");
-        for (Class c : arr) {
-            for (Method m : c.getMethods()) {
-                if (m.getAnnotation(test) != null) {
-                    res.add(new KOScript("None", browserPresenter, m));
-                }
-            }
-        }
         return res.toArray();
     }
     
-    public static Class[] tests() {
-        return testClasses();
-    }
-
-    static synchronized Class<?> loadClass() throws InterruptedException {
-        while (browserClass == null) {
-            KoBrowserTest.class.wait();
-        }
-        return browserClass;
-    }
-    
-    public static synchronized void ready(Class<?> browserCls) throws Exception {
-        browserClass = browserCls;
-        browserPresenter = Fn.activePresenter();
-        KoBrowserTest.class.notifyAll();
-    }
-    
-    public static void initialized() throws Exception {
-        browserPresenter = Fn.activePresenter();
-        Class<?> classpathClass = ClassLoader.getSystemClassLoader().loadClass(KoBrowserTest.class.getName());
-        Method m = classpathClass.getMethod("ready", Class.class);
-        m.invoke(null, KoBrowserTest.class);
-    }
-
     @Override
     public BrwsrCtx createContext() {
         KO4J ko = new KO4J();
         Contexts.Builder b = Contexts.newBuilder();
         b.register(Technology.class, ko.knockout(), 7);
         b.register(Transfer.class, ko.transfer(), 7);
+        Fn.Presenter browserPresenter = Fn.activePresenter();
         assertNotNull(browserPresenter, "Presenter needs to be registered");
         b.register(Executor.class, (Executor)browserPresenter, 10);
         return b.build();

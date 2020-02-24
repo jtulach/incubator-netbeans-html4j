@@ -55,7 +55,7 @@ public final class ServerFactories {
         return arr;
     }
 
-    private static Fn.Presenter collect(
+    static Fn.Presenter collect(
         String browserName, String prefix, Supplier<HttpServer<?,?,?>> serverProvider,
         Collection<? super ITest> res,
         Class<? extends Annotation> test, Supplier<Class[]> tests

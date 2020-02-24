@@ -25,6 +25,7 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -551,8 +553,8 @@ Executor, Closeable {
 
         final synchronized void add(Object obj) {
             if (suspended != null) {
-                try {
-                    server.getWriter(suspended).write(obj.toString());
+                try (Writer w = server.getWriter(suspended)) {
+                    w.write(obj.toString());
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, null, ex);
                 }
@@ -573,13 +575,24 @@ Executor, Closeable {
             return null;
         }
 
+        private synchronized boolean initialize(Response rspns) {
+            if (!initialized) {
+                initialized = true;
+                suspended = rspns;
+                server.suspend(rspns);
+                execute(browser.onPageLoad);
+                return true;
+            }
+            return false;
+        }
+
         void service(Request rqst, Response rspns) throws IOException {
             final String methodName = server.getParameter(rqst, "name");
+            server.setContentType(rspns, "text/javascript");
             Writer w = server.getWriter(rspns);
             if (methodName == null) {
-                if (!initialized) {
-                    initialized = true;
-                    execute(browser.onPageLoad);
+                if (initialize(rspns)) {
+                    return;
                 }
                 // send new request
                 Object obj = take(rspns);

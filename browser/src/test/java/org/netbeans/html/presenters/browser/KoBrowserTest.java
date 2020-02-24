@@ -18,7 +18,6 @@
  */
 package org.netbeans.html.presenters.browser;
 
-import org.netbeans.html.presenters.browser.Browser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -115,7 +114,7 @@ public class KoBrowserTest extends KnockoutTCK {
         for (Class c : arr) {
             for (Method m : c.getMethods()) {
                 if (m.getAnnotation(test) != null) {
-                    res.add(new KOScript(browserPresenter, m));
+                    res.add(new KOScript("None", browserPresenter, m));
                 }
             }
         }

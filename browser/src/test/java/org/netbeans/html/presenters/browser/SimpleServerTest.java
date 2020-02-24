@@ -26,28 +26,22 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import static org.testng.Assert.*;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class SimpleServerTest {
     public SimpleServerTest() {
     }
 
-    @DataProvider(name = "serverFactories")
-    public static Object[][] serverFactories() {
-        Supplier<HttpServer<?,?,?>> simple = SimpleServer::new;
-        Supplier<HttpServer<?,?,?>> grizzly = GrizzlyServer::new;
-        return new Object[][]{{simple}, {grizzly}};
-    }
-
-    @Test(dataProvider = "serverFactories")
-    public void testConnectionToTheServer(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
+    public void testConnectionToTheServer(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        if (serverProvider == null) {
+            return;
+        }
         int min = 42343;
         int max = 49343;
         HttpServer<?, ?, ?> server = serverProvider.get();
@@ -107,8 +101,11 @@ public class SimpleServerTest {
         assertEquals(conn.getHeaderField("Access-Control-Allow-Origin"), "*");
     }
 
-    @Test(dataProvider = "serverFactories")
-    public void testHeadersAndBody(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
+    public void testHeadersAndBody(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        if (serverProvider == null) {
+            return;
+        }
         int min = 42343;
         int max = 49343;
         HttpServer<?, ?, ?> server = serverProvider.get();
@@ -171,15 +168,25 @@ public class SimpleServerTest {
         assertEquals(content, "text/plain");
 
         byte[] arr = new byte[8192];
-        int len = conn.getInputStream().read(arr);
-        assertNotEquals(len, -1, "Something shall be read");
+        int offset = 0;
+        for (;;) {
+            int len = conn.getInputStream().read(arr, offset, arr.length - offset);
+            if (len == -1) {
+                break;
+            }
+            offset += len;
+        }
+        assertNotEquals(offset, 0, "Something shall be read");
 
-        String txt = new String(arr, 0, len, StandardCharsets.UTF_8);
+        String txt = new String(arr, 0, offset, StandardCharsets.UTF_8);
         assertEquals(txt, exp, "Message from the handler delivered");
     }
 
-    @Test(dataProvider = "serverFactories")
-    public void testWaitForData(Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
+    public void testWaitForData(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        if (serverProvider == null) {
+            return;
+        }
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         int min = 32343;
         int max = 33343;

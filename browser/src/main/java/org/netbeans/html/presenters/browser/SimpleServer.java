@@ -357,7 +357,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     private Request findRequest(String url, Map<String, ? extends Object> args, String header, boolean justHead) {
         if (url != null) {
-            LOG.log(Level.INFO, "Searching for page {0}", url);
+            LOG.log(Level.FINE, "Searching for page {0}", url);
             Matcher m = PATTERN_LANGS.matcher(header);
             String langs = m.find() ? m.group(1) : null;
             if (langs != null) {
@@ -581,11 +581,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 }
                 bb.clear();
 
-                LOG.log(Level.INFO, "Found page request {0}", url); // NOI18N
+                LOG.log(Level.FINE, "Found page request {0}", url); // NOI18N
                 bb.clear();
                 bb.put("HTTP/1.1 200 OK\r\n".getBytes());
                 bb.put("Connection: close\r\n".getBytes());
-                bb.put("Server: http://dvbcentral.sf.net\r\n".getBytes());
+                bb.put("Server: Browser Presenter\r\n".getBytes());
                 bb.put(date(null));
                 bb.put("\r\n".getBytes());
                 bb.put(("Content-Type: " + mime + "\r\n").getBytes());

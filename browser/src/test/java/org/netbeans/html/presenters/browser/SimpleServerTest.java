@@ -194,11 +194,10 @@ public class SimpleServerTest {
                 Browser.cors(server, rspns);
                 server.suspend(rspns);
                 exec.schedule((Callable <Void>) () -> {
-                    try (Writer w = server.getWriter(rspns)) {
-                        w.write("Finished!");
-                        server.resume(rspns);
-                        return null;
-                    }
+                    Writer w = server.getWriter(rspns);
+                    w.write("Finished!");
+                    server.resume(rspns);
+                    return null;
                 }, 1, TimeUnit.SECONDS);
             }
         }

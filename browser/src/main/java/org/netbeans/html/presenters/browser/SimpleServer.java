@@ -207,13 +207,17 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     static final class Res {
-
-        final ByteArrayOutputStream os = new ByteArrayOutputStream();
+        private final ByteArrayOutputStream os = new ByteArrayOutputStream();
         final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
         final Map<String,String> headers = new LinkedHashMap<>();
         String contentType;
         int status;
         boolean suspended;
+
+        byte[] toByteArray() throws IOException {
+            writer.close();
+            return os.toByteArray();
+        }
     }
 
     /**
@@ -321,7 +325,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         }
                         reply.handle(key, channel);
                     }
-                }
+               }
             } catch (ThreadDeath td) {
                 throw td;
             } catch (Throwable t) {
@@ -394,11 +398,15 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                                     ch.write(ByteBuffer.allocate(0));
                                     return;
                                 }
-                                ByteBuffer out = ByteBuffer.wrap(res.os.toByteArray());
+                                ByteBuffer out = ByteBuffer.wrap(res.toByteArray());
                                 key.attach(out);
                             }
                             ByteBuffer bb = (ByteBuffer) key.attachment();
-                            ch.write(bb);
+                            if (bb.remaining() > 0) {
+                                ch.write(bb);
+                            } else {
+                                ch.close();
+                            }
                         }
                     });
                     return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, justHead);

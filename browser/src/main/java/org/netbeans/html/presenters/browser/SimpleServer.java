@@ -27,6 +27,7 @@ import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.InetSocketAddress;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SelectableChannel;
@@ -292,7 +293,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     }
 
                     if (key.isReadable()) {
-                        bb.clear();
+                        ((Buffer)bb).clear();
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
                         channel.read(bb);
@@ -579,10 +580,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 if (mime == null) {
                     mime = "content/unknown"; // NOI18N
                 }
-                bb.clear();
+                ((Buffer)bb).clear();
 
                 LOG.log(Level.FINE, "Found page request {0}", url); // NOI18N
-                bb.clear();
+                ((Buffer)bb).clear();
                 bb.put("HTTP/1.1 200 OK\r\n".getBytes());
                 bb.put("Connection: close\r\n".getBytes());
                 bb.put("Server: Browser Presenter\r\n".getBytes());
@@ -594,7 +595,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 }
                 bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
                 bb.put("\r\n".getBytes());
-                bb.flip();
+                ((Buffer)bb).flip();
                 channel.write(bb);
                 LOG.log(Level.FINER, "Written header, type {0}", mime);
                 bb = null;
@@ -674,7 +675,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 bb.put(("Content-Type: text/html\r\n").getBytes());
                 bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
                 bb.put("\r\n".getBytes());
-                bb.flip();
+                ((Buffer)bb).flip();
                 channel.write(bb);
                 index = 0;
             } else {
@@ -682,12 +683,12 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     LOG.warning(msg);
                 }
                 LOG.log(Level.FINE, "writing at {0}", index);
-                bb.clear();
+                ((Buffer)bb).clear();
                 byte[] arr = msg.getBytes();
                 bb.put(arr, index, arr.length - index);
                 index += bb.position();
                 LOG.log(Level.FINE, "something written new index at {0}", index);
-                bb.flip();
+                ((Buffer)bb).flip();
                 channel.write(bb);
                 if (index == arr.length) {
                     LOG.fine("msg written, closing channel");

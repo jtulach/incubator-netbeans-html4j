@@ -20,7 +20,6 @@ package org.netbeans.html.presenters.browser;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.io.Writer;
 
 abstract class HttpServer<Request, Response, WebSocket> {

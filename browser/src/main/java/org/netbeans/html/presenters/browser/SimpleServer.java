@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -54,7 +55,12 @@ import java.util.regex.Pattern;
 
 final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, Object> implements Runnable {
 
-    private final Map<String, Handler> maps = new LinkedHashMap<>();
+    private final Map<String, Handler> maps = new TreeMap<>((s1, s2) -> {
+        if (s1.length() != s2.length()) {
+            return s2.length() - s1.length();
+        }
+        return s2.compareTo(s1);
+    });
     private int max;
     private int min;
     private ServerSocketChannel server;

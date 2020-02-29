@@ -23,7 +23,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -36,7 +35,7 @@ import org.netbeans.html.presenters.browser.HttpServer.WebSocketApplication;
 final class DynamicHTTP extends Handler {
     private static final Logger LOG = Logger.getLogger(DynamicHTTP.class.getName());
     private static int resourcesCount;
-    private List<Resource> resources = new ArrayList<Resource>();
+    private final List<Resource> resources = new ArrayList<>();
     private final HttpServer server;
     
     DynamicHTTP(HttpServer s) {
@@ -47,7 +46,7 @@ final class DynamicHTTP extends Handler {
     public <Request, Response> void service(HttpServer<Request, Response, ?> s, Request request, Response response) throws IOException {
         if ("/dynamic".equals(s.getRequestURI(request))) {
             String mimeType = s.getParameter(request, "mimeType");
-            List<String> params = new ArrayList<String>();
+            List<String> params = new ArrayList<>();
             boolean webSocket = false;
             for (int i = 0;; i++) {
                 String p = s.getParameter(request, "param" + i);
@@ -86,7 +85,7 @@ final class DynamicHTTP extends Handler {
                         params[i] = s.getParameter(request, r.parameters[i]);
                         if (params[i] == null) {
                             if ("http.method".equals(r.parameters[i])) {
-                                params[i] = s.getMethod(request).toString();
+                                params[i] = s.getMethod(request);
                             } else if ("http.requestBody".equals(r.parameters[i])) {
                                 params[i] = s.getBody(request);
                             } else if (r.parameters[i].startsWith("http.header.")) {

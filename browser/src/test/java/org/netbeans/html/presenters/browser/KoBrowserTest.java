@@ -52,7 +52,7 @@ public class KoBrowserTest extends KnockoutTCK {
         Browser.LOG.setLevel(Level.FINE);
         Browser.LOG.addHandler(new ConsoleHandler());
 
-        List<Object> res = new ArrayList<Object>();
+        List<Object> res = new ArrayList<>();
         Fn.Presenter browserPresenter = ServerFactories.collect("KoBrowserTest", "Simple", SimpleServer::new, res, KOTest.class, KnockoutTCK::testClasses);
         final HttpServer s = Browser.findServer(browserPresenter);
         s.addHttpHandler(new DynamicHTTP(s), "/dynamic");

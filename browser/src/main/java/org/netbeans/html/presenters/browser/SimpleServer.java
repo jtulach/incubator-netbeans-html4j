@@ -120,7 +120,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     String getMethod(Req r) {
-        return r.justHead ? "HEAD" : "GET";
+        return r.method;
     }
 
     @Override
@@ -197,19 +197,19 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         final int hostPort;
         final Map<String, ? extends Object> args;
         final String header;
-        final boolean justHead;
+        final String method;
         final ByteBuffer body;
 
         Req(
             String url, Map<String, ? extends Object> args, String host,
-            int port, String header, boolean justHead, ByteBuffer body
+            int port, String header, String method, ByteBuffer body
         ) {
             this.url = url;
             this.hostName = host;
             this.hostPort = port;
             this.args = args;
             this.header = header;
-            this.justHead = justHead;
+            this.method = method;
             this.body = body;
         }
     }
@@ -326,7 +326,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         Matcher m = PATTERN_GET.matcher(header);
                         String url = m.find() ? m.group(2) : null;
                         String args = url != null && m.groupCount() == 3 ? m.group(3) : null;
-                        boolean head = url != null && "HEAD".equals(m.group(1));
+                        String method = m.group(1);
 
                         Map<String, String> context;
                         if (args != null) {
@@ -346,7 +346,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             body.put(bb);
                         }
 
-                        Request req = findRequest(url, context, header, head, body);
+                        Request req = findRequest(url, context, header, method, body);
                         key.attach(req);
                         if (body != null && body.remaining() > 0) {
                             key.interestOps(SelectionKey.OP_READ);
@@ -397,7 +397,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     private Request findRequest(
         String url, Map<String, ? extends Object> args, String header,
-        boolean justHead, ByteBuffer bodyToFill
+        String method, ByteBuffer bodyToFill
     ) {
         if (url != null) {
             LOG.log(Level.FINE, "Searching for page {0}", url);
@@ -422,7 +422,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             for (Map.Entry<String, Handler> entry : maps.entrySet()) {
                 if (url.startsWith(entry.getKey())) {
                     final Handler h = entry.getValue();
-                    Req req = new Req(url, args, host, port, header, justHead, bodyToFill);
+                    Req req = new Req(url, args, host, port, header, method, bodyToFill);
                     Res res = new Res();
                     UnknownPageRequest upr = UnknownPageRequest.create(new HeaderProvider() {
                         @Override
@@ -452,7 +452,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             }
                         }
                     });
-                    return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, justHead, bodyToFill);
+                    return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, method, bodyToFill);
                 }
             }
 
@@ -460,7 +460,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 LOG.log(Level.INFO, "Page not found trying {0}", url);
                 Object obj = null;
                 if (obj != null) {
-                    return new DynamicRequest((UnknownPageRequest) obj, null, url.substring(last + 1), args, langs, justHead, null);
+                    return new DynamicRequest((UnknownPageRequest) obj, null, url.substring(last + 1), args, langs, method, null);
                 }
                 if (pref.length() > 0) {
                     last = pref.lastIndexOf('/');
@@ -579,7 +579,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         private final String url;
         private final Map<String, ? extends Object> context;
         private final String langs;
-        private final boolean justHead;
+        private final String method;
         final ByteBuffer body;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
         private SelectionKey delegate;
@@ -591,13 +591,13 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 String u,
                 Map<String, ? extends Object> a,
                 String langs,
-                boolean justHead,
+                String method,
                 ByteBuffer body
         ) {
             this.upr = v;
             this.url = u;
             this.context = a;
-            this.justHead = justHead;
+            this.method = method;
             this.langs = langs;
             this.body = body;
         }
@@ -617,7 +617,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     headerAttrs = response.headers;
 
                     if (response.redirect != null) {
-                        Request req = findRequest(response.redirect, response.args, "", justHead, body);
+                        Request req = findRequest(response.redirect, response.args, "", method, body);
                         key.attach(req);
                         return;
                     }
@@ -647,7 +647,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 LOG.log(Level.FINER, "Written header, type {0}", mime);
                 bb = null;
 
-                if (justHead) {
+                if ("HEAD".equals(method)) {
                     LOG.fine("Writer flushed and closed, closing channel");
                     channel.close();
                     return;

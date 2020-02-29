@@ -137,9 +137,7 @@ public class KoBrowserTest extends KnockoutTCK {
             BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
             URI connectTo = new URI(br.readLine());
             return connectTo;
-        } catch (IOException ex) {
-            throw new IllegalStateException(ex);
-        } catch (URISyntaxException ex) {
+        } catch (IOException | URISyntaxException ex) {
             throw new IllegalStateException(ex);
         }
     }

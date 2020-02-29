@@ -20,9 +20,9 @@ package org.netbeans.html.presenters.browser;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.io.Writer;
 import org.glassfish.grizzly.PortRange;
+import org.glassfish.grizzly.http.io.InputBuffer;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
 import org.glassfish.grizzly.http.server.Response;
@@ -86,8 +86,15 @@ final class GrizzlyServer extends HttpServer<Request, Response, Object> {
     }
 
     @Override
-    Reader getReader(Request r) {
-        return r.getReader();
+    String getBody(Request r) throws IOException {
+        final InputBuffer buffer = r.getInputBuffer();
+        buffer.processingChars();
+        buffer.fillFully(-1);
+        int len = buffer.availableChar();
+        char[] arr = new char[len];
+        int reallyRead = buffer.read(arr, 0, len);
+        assert reallyRead == len;
+        return new String(arr);
     }
 
     @Override

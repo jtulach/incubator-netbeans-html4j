@@ -113,16 +113,7 @@ public class SimpleServerTest {
         server.addHttpHandler(new HttpServer.Handler() {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
-
-                BufferedReader r = new BufferedReader(server.getReader(rqst));
-                StringBuilder sb = new StringBuilder();
-                for (;;) {
-                    String l = r.readLine();
-                    if (l == null) {
-                        break;
-                    }
-                    sb.append(l);
-                }
+                StringBuilder sb = new StringBuilder(server.getBody(rqst));
 
                 server.setCharacterEncoding(rspns, "UTF-8");
                 server.setContentType(rspns, "text/plain");
@@ -221,4 +212,55 @@ public class SimpleServerTest {
         server.shutdownNow();
     }
 
+    @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
+    public void testEnormousBody(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+        if (serverProvider == null) {
+            return;
+}
+        ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
+        int min = 32343;
+        int max = 33343;
+        HttpServer<?, ?, ?> server = serverProvider.get();
+        server.init(min, max);
+
+        String id = veryLongId();
+
+        class HandlerImpl extends HttpServer.Handler {
+            @Override
+            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+                server.setCharacterEncoding(rspns, "UTF-8");
+                server.setContentType(rspns, "text/x-test");
+                Browser.cors(server, rspns);
+
+                assertEquals("upper", server.getHeader(rqst, "action"));
+
+                String gotId = server.getBody(rqst);
+                if (!gotId.equals(id)) {
+                    fail("Id as expected by " + server + " isn't the same " + id.length() + " != " + gotId.length());
+                }
+                server.getWriter(rspns).write(gotId.toUpperCase());
+            }
+        }
+        server.addHttpHandler(new HandlerImpl(), "/action");
+        server.start();
+
+        int realPort = server.getPort();
+        assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
+
+        final String baseUri = "http://localhost:" + realPort;
+        assertReadURL("upper", id, baseUri, id.toUpperCase());
+
+        exec.shutdown();
+        server.shutdownNow();
+    }
+
+    private static String veryLongId() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 10000; i++) {
+            final int max = 'Z' - 'A';
+            int ch = 'A' + (i % max);
+            sb.append((char) ch);
+        }
+        return sb.toString();
+    }
 }

@@ -119,7 +119,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    Reader getReader(Req r) {
+    String getBody(Req r) {
         int emptyLine = r.header.indexOf("\r\n\r\n");
         String rest;
         if (emptyLine == -1) {
@@ -127,7 +127,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         } else {
             rest = r.header.substring(emptyLine + 4);
         }
-        return new StringReader(rest);
+        return rest;
     }
 
     @Override

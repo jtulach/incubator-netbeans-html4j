@@ -35,7 +35,7 @@ abstract class HttpServer<Request, Response, WebSocket> {
     abstract int getServerPort(Request r);
     abstract String getParameter(Request r, String id);
     abstract String getMethod(Request r);
-    abstract Reader getReader(Request r);
+    abstract String getBody(Request r) throws IOException;
     abstract String getHeader(Request r, String substring);
 
     abstract Writer getWriter(Response r);

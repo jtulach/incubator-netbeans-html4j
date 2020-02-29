@@ -88,16 +88,7 @@ final class DynamicHTTP extends Handler {
                             if ("http.method".equals(r.parameters[i])) {
                                 params[i] = s.getMethod(request).toString();
                             } else if ("http.requestBody".equals(r.parameters[i])) {
-                                Reader rdr = s.getReader(request);
-                                StringBuilder sb = new StringBuilder();
-                                for (;;) {
-                                    int ch = rdr.read();
-                                    if (ch == -1) {
-                                        break;
-                                    }
-                                    sb.append((char) ch);
-                                }
-                                params[i] = sb.toString();
+                                params[i] = s.getBody(request);
                             } else if (r.parameters[i].startsWith("http.header.")) {
                                 params[i] = s.getHeader(request, r.parameters[i].substring(12));
                             }

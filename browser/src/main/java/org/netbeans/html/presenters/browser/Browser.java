@@ -25,13 +25,13 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -604,13 +604,10 @@ Executor, Closeable {
                 w.write(s);
                 LOG.log(Level.FINE, "Exec global: {0}", s);
             } else {
-                List<String> args = new ArrayList<String>();
-                for (;;) {
-                    String p = server.getParameter(rqst, "p" + args.size());
-                    if (p == null) {
-                        break;
-                    }
-                    args.add(p);
+                List<String> args = new ArrayList<>();
+                String body = server.getBody(rqst);
+                for (String p : body.split("&")) {
+                    args.add(URLDecoder.decode(p.substring(3), "UTF-8"));
                 }
                 String res;
                 try {
@@ -635,14 +632,14 @@ Executor, Closeable {
             StringBuilder sb = new StringBuilder();
             sb.append("this.toBrwsrSrvr = function(name, a1, a2, a3, a4) {\n"
                 + "var url = '").append(prefix).append("command.js?id=").append(id).append("&name=' + name;\n"
-                + "url += '&p0=' + encodeURIComponent(a1);\n"
-                + "url += '&p1=' + encodeURIComponent(a2);\n"
-                + "url += '&p2=' + encodeURIComponent(a3);\n"
-                + "url += '&p3=' + encodeURIComponent(a4);\n"
+                + "var body = 'p0=' + encodeURIComponent(a1);\n"
+                + "body += '&p1=' + encodeURIComponent(a2);\n"
+                + "body += '&p2=' + encodeURIComponent(a3);\n"
+                + "body += '&p3=' + encodeURIComponent(a4);\n"
                 + "var request = new XMLHttpRequest();\n"
-                + "request.open('GET', url, false);\n"
-                + "request.setRequestHeader('Content-Type', 'text/plain; charset=utf-8');\n"
-                + "request.send();\n"
+                + "request.open('PUT', url, false);\n"
+                + "request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8');\n"
+                + "request.send(body);\n"
                 + "return request.responseText;\n"
                 + "};\n");
             add(sb);

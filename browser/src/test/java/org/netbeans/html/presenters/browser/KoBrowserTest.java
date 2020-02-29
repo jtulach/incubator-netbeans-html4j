@@ -53,9 +53,11 @@ public class KoBrowserTest extends KnockoutTCK {
         Browser.LOG.addHandler(new ConsoleHandler());
 
         List<Object> res = new ArrayList<>();
-        Fn.Presenter browserPresenter = ServerFactories.collect("KoBrowserTest", "Simple", SimpleServer::new, res, KOTest.class, KnockoutTCK::testClasses);
-        final HttpServer s = Browser.findServer(browserPresenter);
-        s.addHttpHandler(new DynamicHTTP(s), "/dynamic");
+        Fn.Presenter[] all = ServerFactories.collect("KoBrowserTest", res, KOTest.class, KnockoutTCK::testClasses);
+        for (Fn.Presenter browserPresenter : all) {
+            final HttpServer s = Browser.findServer(browserPresenter);
+            s.addHttpHandler(new DynamicHTTP(s), "/dynamic");
+        }
         return res.toArray();
     }
     
@@ -85,16 +87,13 @@ public class KoBrowserTest extends KnockoutTCK {
         return json;
     }
 
-    private Fn jsonFn;
     private Object putValue(Object json, String key, Object value) {
-        if (jsonFn == null) {
-            jsonFn = Fn.activePresenter().defineFn(
-                "if (json === null) json = new Object();"
-                + "if (key !== null) json[key] = value;"
-                + "return json;",
-                "json", "key", "value"
-            );
-        }
+        Fn jsonFn = Fn.activePresenter().defineFn(
+            "if (json === null) json = new Object();"
+            + "if (key !== null) json[key] = value;"
+            + "return json;",
+            "json", "key", "value"
+        );
         try {
             return jsonFn.invoke(null, json, key, value);
         } catch (Exception ex) {
@@ -102,16 +101,13 @@ public class KoBrowserTest extends KnockoutTCK {
         }
     }
     
-    private Fn executeScript;
     @Override
     public Object executeScript(String script, Object[] arguments) {
-        if (executeScript == null) {
-            executeScript = Fn.activePresenter().defineFn(
-                "var f = new Function(s); "
-              + "return f.apply(null, args);",
-              "s", "args"
-            );
-        }
+        Fn executeScript = Fn.activePresenter().defineFn(
+            "var f = new Function(s); "
+            + "return f.apply(null, args);",
+            "s", "args"
+        );
         try {
             return executeScript.invoke(null, script, arguments);
         } catch (Exception ex) {

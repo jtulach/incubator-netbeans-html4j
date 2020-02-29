@@ -22,8 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.InetSocketAddress;
@@ -66,6 +64,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET|POST|PUT|DELETE) */([^ \\?]*)(\\?[^ ]*)?");
     private static final Pattern PATTERN_LANGS = Pattern.compile(".*^Accept-Language:(.*)$", Pattern.MULTILINE);
     private static final Pattern PATTERN_HOST = Pattern.compile(".*^Host: *(.*):([0-9]+)$", Pattern.MULTILINE);
+    private static final Pattern PATTERN_LENGTH = Pattern.compile(".*^Content-Length: ([0-9]+)$", Pattern.MULTILINE);
     static final Logger LOG = Logger.getLogger(SimpleServer.class.getName());
 
     SimpleServer() {
@@ -120,14 +119,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
     @Override
     String getBody(Req r) {
-        int emptyLine = r.header.indexOf("\r\n\r\n");
-        String rest;
-        if (emptyLine == -1) {
-            rest = "";
-        } else {
-            rest = r.header.substring(emptyLine + 4);
-        }
-        return rest;
+        return new String(r.body.array(), StandardCharsets.UTF_8);
+    }
+
+    static int endOfHeader(String header) {
+        return header.indexOf("\r\n\r\n");
     }
 
     @Override
@@ -196,14 +192,19 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         final Map<String, ? extends Object> args;
         final String header;
         final boolean justHead;
+        final ByteBuffer body;
 
-        Req(String url, Map<String, ? extends Object> args, String host, int port, String header, boolean justHead) {
+        Req(
+            String url, Map<String, ? extends Object> args, String host,
+            int port, String header, boolean justHead, ByteBuffer body
+        ) {
             this.url = url;
             this.hostName = host;
             this.hostPort = port;
             this.args = args;
             this.header = header;
             this.justHead = justHead;
+            this.body = body;
         }
     }
 
@@ -296,8 +297,26 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         ((Buffer)bb).clear();
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
-                        channel.read(bb);
-                        String header = new String(bb.array(), 0, bb.position());
+                        int read = channel.read(bb);
+                        if (key.attachment() instanceof Request) {
+                            bb.flip();
+                            Request req = (Request) key.attachment();
+                            req.bodyToFill().put(bb);
+                            if (req.bodyToFill().remaining() == 0) {
+                                key.interestOps(SelectionKey.OP_WRITE);
+                            }
+                            continue PROCESS;
+                        }
+
+
+                        bb.flip();
+                        String text = new String(bb.array(), 0, bb.limit());
+                        int fullHeader = endOfHeader(text);
+                        if (channel.isOpen() && fullHeader == -1) {
+                            continue PROCESS;
+                        }
+                        String header = text.substring(0, fullHeader);
+
                         Matcher m = PATTERN_GET.matcher(header);
                         String url = m.find() ? m.group(2) : null;
                         String args = url != null && m.groupCount() == 3 ? m.group(3) : null;
@@ -305,14 +324,28 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
                         Map<String, String> context;
                         if (args != null) {
-                            Map<String, String> c = new HashMap<String, String>();
+                            Map<String, String> c = new HashMap<>();
                             parseArgs(c, args);
                             context = Collections.unmodifiableMap(c);
                         } else {
                             context = Collections.emptyMap();
                         }
-                        Request req = findRequest(url, context, header, head);
+
+                        Matcher length = PATTERN_LENGTH.matcher(header);
+                        ByteBuffer body = null;
+                        if (length.find()) {
+                            int contentLength = Integer.parseInt(length.group(1));
+                            body = ByteBuffer.allocate(contentLength);
+                            bb.position(fullHeader + 4);
+                            body.put(bb);
+                        }
+
+                        Request req = findRequest(url, context, header, head, body);
                         key.attach(req);
+                        if (body != null && body.remaining() > 0) {
+                            key.interestOps(SelectionKey.OP_READ);
+                            continue PROCESS;
+                        }
                         key.interestOps(SelectionKey.OP_WRITE);
                         continue PROCESS;
                     }
@@ -356,7 +389,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         LOG.fine("All notified, exiting server");
     }
 
-    private Request findRequest(String url, Map<String, ? extends Object> args, String header, boolean justHead) {
+    private Request findRequest(
+        String url, Map<String, ? extends Object> args, String header,
+        boolean justHead, ByteBuffer bodyToFill
+    ) {
         if (url != null) {
             LOG.log(Level.FINE, "Searching for page {0}", url);
             Matcher m = PATTERN_LANGS.matcher(header);
@@ -380,7 +416,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             for (Map.Entry<String, Handler> entry : maps.entrySet()) {
                 if (url.startsWith(entry.getKey())) {
                     final Handler h = entry.getValue();
-                    Req req = new Req(url, args, host, port, header, justHead);
+                    Req req = new Req(url, args, host, port, header, justHead, bodyToFill);
                     Res res = new Res();
                     UnknownPageRequest upr = UnknownPageRequest.create(new HeaderProvider() {
                         @Override
@@ -410,7 +446,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             }
                         }
                     });
-                    return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, justHead);
+                    return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, justHead, bodyToFill);
                 }
             }
 
@@ -418,7 +454,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 LOG.log(Level.INFO, "Page not found trying {0}", url);
                 Object obj = null;
                 if (obj != null) {
-                    return new DynamicRequest((UnknownPageRequest) obj, null, url.substring(last + 1), args, langs, justHead);
+                    return new DynamicRequest((UnknownPageRequest) obj, null, url.substring(last + 1), args, langs, justHead, null);
                 }
                 if (pref.length() > 0) {
                     last = pref.lastIndexOf('/');
@@ -526,6 +562,8 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     private static interface Request {
 
         public void handle(SelectionKey key, SocketChannel channel) throws IOException;
+
+        public ByteBuffer bodyToFill();
     }
 
     private final class DynamicRequest extends SelectionKey
@@ -536,6 +574,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         private final Map<String, ? extends Object> context;
         private final String langs;
         private final boolean justHead;
+        final ByteBuffer body;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
         private SelectionKey delegate;
         private Header header;
@@ -546,13 +585,15 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 String u,
                 Map<String, ? extends Object> a,
                 String langs,
-                boolean justHead
+                boolean justHead,
+                ByteBuffer body
         ) {
             this.upr = v;
             this.url = u;
             this.context = a;
             this.justHead = justHead;
             this.langs = langs;
+            this.body = body;
         }
 
         public void handle(SelectionKey key, SocketChannel channel) throws IOException {
@@ -570,7 +611,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     headerAttrs = response.headers;
 
                     if (response.redirect != null) {
-                        Request req = findRequest(response.redirect, response.args, "", justHead);
+                        Request req = findRequest(response.redirect, response.args, "", justHead, body);
                         key.attach(req);
                         return;
                     }
@@ -618,6 +659,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     key.cancel();
                 }
             }
+        }
+
+        @Override
+        public ByteBuffer bodyToFill() {
+            return body;
         }
 
         @Override
@@ -696,6 +742,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 }
             }
 
+        }
+
+        @Override
+        public ByteBuffer bodyToFill() {
+            return null;
         }
 
         @Override

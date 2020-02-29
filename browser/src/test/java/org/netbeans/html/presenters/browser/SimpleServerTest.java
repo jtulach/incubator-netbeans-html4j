@@ -158,7 +158,7 @@ public class SimpleServerTest {
         final String content = semicolon == -1 ? contentAndAttribs : contentAndAttribs.substring(0, semicolon);
         assertEquals(content, "text/plain");
 
-        byte[] arr = new byte[8192];
+        byte[] arr = new byte[8192 * 8];
         int offset = 0;
         for (;;) {
             int len = conn.getInputStream().read(arr, offset, arr.length - offset);
@@ -216,7 +216,7 @@ public class SimpleServerTest {
     public void testEnormousBody(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
         if (serverProvider == null) {
             return;
-}
+        }
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         int min = 32343;
         int max = 33343;
@@ -229,16 +229,16 @@ public class SimpleServerTest {
             @Override
             <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
                 server.setCharacterEncoding(rspns, "UTF-8");
-                server.setContentType(rspns, "text/x-test");
+                server.setContentType(rspns, "text/plain");
                 Browser.cors(server, rspns);
 
-                assertEquals("upper", server.getHeader(rqst, "action"));
+                assertEquals("lower", server.getHeader(rqst, "action"));
 
                 String gotId = server.getBody(rqst);
                 if (!gotId.equals(id)) {
                     fail("Id as expected by " + server + " isn't the same " + id.length() + " != " + gotId.length());
                 }
-                server.getWriter(rspns).write(gotId.toUpperCase());
+                server.getWriter(rspns).write(gotId.toLowerCase());
             }
         }
         server.addHttpHandler(new HandlerImpl(), "/action");
@@ -248,7 +248,7 @@ public class SimpleServerTest {
         assertTrue(realPort <= max && realPort >= min, "Port from range (" + min + ", " + max + ") selected: " + realPort);
 
         final String baseUri = "http://localhost:" + realPort;
-        assertReadURL("upper", id, baseUri, id.toUpperCase());
+        assertReadURL("lower", id, baseUri, id.toLowerCase());
 
         exec.shutdown();
         server.shutdownNow();

@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -112,7 +111,7 @@ Executor, Closeable {
     }
 
     Browser(String app, Config config, Supplier<HttpServer<?,?,?>> serverProvider) {
-        this.serverProvider = serverProvider != null ? serverProvider : GrizzlyServer::new;
+        this.serverProvider = serverProvider != null ? serverProvider : SimpleServer::new;
         this.app = app;
         this.config = new Config(config);
     }

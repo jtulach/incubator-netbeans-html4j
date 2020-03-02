@@ -61,11 +61,16 @@ public final class ServerFactories {
         Class<? extends Annotation> test, Supplier<Class[]> tests
     ) throws Exception {
         Fn.Presenter[] browserPresenter = { null };
+        Fn[] updateName = { null };
         CountDownLatch cdl = new CountDownLatch(1);
         final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser(browserName, new Browser.Config(), serverProvider)).
             loadPage("empty.html").
             loadFinished(() -> {
                 browserPresenter[0] = Fn.activePresenter();
+                updateName[0] = Fn.define(KOScript.class,
+                    "document.getElementsByTagName('h1')[0].innerHTML='" + browserName + "@' + t;",
+                    "t"
+                );
                 cdl.countDown();
             });
         Executors.newSingleThreadExecutor().submit(bb::showAndWait);
@@ -74,7 +79,7 @@ public final class ServerFactories {
         for (Class c : arr) {
             for (Method m : c.getMethods()) {
                 if (m.getAnnotation(test) != null) {
-                    res.add(new KOScript(prefix, browserPresenter[0], m));
+                    res.add(new KOScript(updateName[0], prefix, browserPresenter[0], m));
                 }
             }
         }

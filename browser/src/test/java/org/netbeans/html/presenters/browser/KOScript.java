@@ -39,8 +39,10 @@ public final class KOScript implements ITest, IHookable, Runnable {
     private Object inst;
     private int cnt;
     private final String prefix;
+    private final Fn updateName;
 
-    KOScript(String prefix, Fn.Presenter p, Method m) {
+    KOScript(Fn updateName, String prefix, Fn.Presenter p, Method m) {
+        this.updateName = updateName;
         this.prefix = prefix;
         this.p = p;
         this.m = m;
@@ -79,6 +81,9 @@ public final class KOScript implements ITest, IHookable, Runnable {
     public void run() {
         Closeable c = Fn.activate(p);
         try {
+            if (updateName != null) {
+                updateName.invoke(null, getTestName());
+            }
             if (inst == null) {
                 inst = m.getDeclaringClass().newInstance();
             }

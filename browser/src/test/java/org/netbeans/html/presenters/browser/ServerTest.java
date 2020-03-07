@@ -110,10 +110,10 @@ public class ServerTest {
     }
 
     @JavaScriptBody(args = { "value" }, body = "document.getElementById('loaded').innerHTML = value;")
-    private static native void setLoaded(String value);
+    static native void setLoaded(String value);
 
     @JavaScriptBody(args = { "ms" }, body = "window.setTimeout(function() { window.close(); }, ms);")
-    private static native void closeSoon(int ms);
+    static native void closeSoon(int ms);
 
     private static void show(URI page) throws IOException {
         ExecutorService background = Executors.newSingleThreadExecutor();

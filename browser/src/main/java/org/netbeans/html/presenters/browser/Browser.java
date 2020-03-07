@@ -20,6 +20,7 @@ package org.netbeans.html.presenters.browser;
 
 import org.netbeans.html.presenters.render.Show;
 import java.io.Closeable;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.Flushable;
 import java.io.IOException;
@@ -31,7 +32,9 @@ import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLDecoder;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -387,11 +390,28 @@ Executor, Closeable {
                 }
                 URL relative = new URL(page, path);
                 InputStream is;
+                URLConnection conn;
                 try {
-                    is = relative.openStream();
+                    conn = relative.openConnection();
+                    is = conn.getInputStream();
                 } catch (FileNotFoundException ex) {
                     server.setStatus(rspns, 404);
                     return;
+                }
+                if (relative.getProtocol().equals("file")) {
+                    try {
+                        File file = new File(relative.toURI());
+                        String found = Files.probeContentType(file.toPath());
+                        if (found != null) {
+                            server.setContentType(rspns, found);
+                        }
+                    } catch (URISyntaxException | IOException ignore) {
+                    }
+                } else {
+                    String type = conn.getContentType();
+                    if (type != null) {
+                        server.setContentType(rspns, type);
+                    }
                 }
                 OutputStream out = server.getOutputStream(rspns);
                 for (;;) {

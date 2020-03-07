@@ -305,7 +305,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         toClose = channel;
                         int read = channel.read(bb);
                         if (key.attachment() instanceof Request) {
-                            bb.flip();
+                            ((Buffer)bb).flip();
                             Request req = (Request) key.attachment();
                             req.bodyToFill().put(bb);
                             if (req.bodyToFill().remaining() == 0) {
@@ -315,7 +315,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         }
 
 
-                        bb.flip();
+                        ((Buffer)bb).flip();
                         String text = new String(bb.array(), 0, bb.limit());
                         int fullHeader = endOfHeader(text);
                         if (channel.isOpen() && fullHeader == -1) {
@@ -342,7 +342,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         if (length.find()) {
                             int contentLength = Integer.parseInt(length.group(1));
                             body = ByteBuffer.allocate(contentLength);
-                            bb.position(fullHeader + 4);
+                            ((Buffer)bb).position(fullHeader + 4);
                             body.put(bb);
                         }
 

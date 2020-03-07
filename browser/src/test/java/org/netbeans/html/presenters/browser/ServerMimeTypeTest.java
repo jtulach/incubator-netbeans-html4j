@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.function.Supplier;
 import net.java.html.boot.BrowserBuilder;
 import static org.netbeans.html.presenters.browser.ServerTest.closeSoon;
@@ -65,6 +66,12 @@ public class ServerMimeTypeTest {
 
         String jsType = new URL(connect, "test.js").openConnection().getContentType();
         assertMimeType(jsType, "application/javascript");
+
+        URLConnection conn = new URL(connect, "non-existing.file").openConnection();
+        assertTrue(conn instanceof HttpURLConnection, "it is HTTP connection: " + conn);
+
+        HttpURLConnection httpConn = (HttpURLConnection) conn;
+        assertEquals(httpConn.getResponseCode(), 404, "Expecting not exist status");
 
         server.close();
         try {

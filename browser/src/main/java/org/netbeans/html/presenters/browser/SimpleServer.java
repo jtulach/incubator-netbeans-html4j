@@ -432,6 +432,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                                 response.setMimeType(res.contentType);
                             }
                             response.setHeaders(res.headers);
+                            response.status = res.status;
                         }
                     }, new ContentProvider() {
                         @Override
@@ -611,6 +612,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
                 Map<String,String> headerAttrs = Collections.emptyMap();
                 String mime = upr.mimeType;
+                int status = 200;
                 if (mime == null) {
                     Response response = new Response();
                     upr.header.replyHeader(header, response);
@@ -623,6 +625,9 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     }
 
                     mime = response.mimeType;
+                    if (response.status > 0) {
+                        status = response.status;
+                    }
                 }
                 if (mime == null) {
                     mime = "content/unknown"; // NOI18N
@@ -631,7 +636,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
                 LOG.log(Level.FINE, "Found page request {0}", url); // NOI18N
                 ((Buffer)bb).clear();
-                bb.put("HTTP/1.1 200 OK\r\n".getBytes());
+                bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
                 bb.put("Connection: close\r\n".getBytes());
                 bb.put("Server: Browser Presenter\r\n".getBytes());
                 bb.put(date(null));
@@ -766,6 +771,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         String redirect;
         Map<String, ? extends Object> args;
         Map<String, String> headers;
+        private int status;
 
         void setMimeType(String mimeType) {
             this.mimeType = mimeType;

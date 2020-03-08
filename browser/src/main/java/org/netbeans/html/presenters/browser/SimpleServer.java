@@ -51,7 +51,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, Object> implements Runnable {
+final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.ReqRes, Object> implements Runnable {
 
     private final Map<String, Handler> maps = new TreeMap<>((s1, s2) -> {
         if (s1.length() != s2.length()) {
@@ -97,32 +97,32 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    String getRequestURI(Req r) {
+    String getRequestURI(ReqRes r) {
         return "/" + r.url;
     }
 
     @Override
-    String getServerName(Req r) {
+    String getServerName(ReqRes r) {
         return r.hostName;
     }
 
     @Override
-    int getServerPort(Req r) {
+    int getServerPort(ReqRes r) {
         return r.hostPort;
     }
 
     @Override
-    String getParameter(Req r, String id) {
+    String getParameter(ReqRes r, String id) {
         return (String) r.args.get(id);
     }
 
     @Override
-    String getMethod(Req r) {
+    String getMethod(ReqRes r) {
         return r.method;
     }
 
     @Override
-    String getBody(Req r) {
+    String getBody(ReqRes r) {
         return new String(r.body.array(), StandardCharsets.UTF_8);
     }
 
@@ -131,7 +131,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    String getHeader(Req r, String key) {
+    String getHeader(ReqRes r, String key) {
         for (String l : r.header.split("\r\n")) {
             if (l.isEmpty()) {
                 break;
@@ -144,63 +144,49 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     }
 
     @Override
-    Writer getWriter(Res r) {
+    Writer getWriter(ReqRes r) {
         return r.writer;
     }
 
     @Override
-    void setContentType(Res r, String contentType) {
+    void setContentType(ReqRes r, String contentType) {
         r.contentType = contentType;
     }
 
     @Override
-    void setStatus(Res r, int status) {
+    void setStatus(ReqRes r, int status) {
         r.status = status;
     }
 
     @Override
-    OutputStream getOutputStream(Res r) {
+    OutputStream getOutputStream(ReqRes r) {
         return r.os;
     }
 
     @Override
-    void suspend(Res r) {
+    void suspend(ReqRes r) {
         r.suspended = true;
     }
 
     @Override
-    void resume(Res r) {
+    void resume(ReqRes r) {
         r.suspended = false;
     }
 
     @Override
-    void setCharacterEncoding(Res r, String encoding) {
+    void setCharacterEncoding(ReqRes r, String encoding) {
         if (!encoding.equals("UTF-8")) {
             throw new IllegalStateException(encoding);
         }
     }
 
     @Override
-    void addHeader(Res r, String name, String value) {
+    void addHeader(ReqRes r, String name, String value) {
         r.headers.put(name, value);
     }
 
     @Override
     <WebSocket> void send(WebSocket socket, String s) {
-    }
-
-    static final class Res {
-        private final ByteArrayOutputStream os = new ByteArrayOutputStream();
-        final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
-        final Map<String,String> headers = new LinkedHashMap<>();
-        String contentType;
-        int status;
-        boolean suspended;
-
-        byte[] toByteArray() throws IOException {
-            writer.close();
-            return os.toByteArray();
-        }
     }
 
     /**
@@ -278,10 +264,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         ((Buffer)bb).clear();
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
-                        int read = channel.read(bb);
-                        if (key.attachment() instanceof Req) {
+                        channel.read(bb);
+                        if (key.attachment() instanceof ReqRes) {
                             ((Buffer)bb).flip();
-                            Req req = (Req) key.attachment();
+                            ReqRes req = (ReqRes) key.attachment();
                             req.bodyToFill().put(bb);
                             if (req.bodyToFill().remaining() == 0) {
                                 key.interestOps(SelectionKey.OP_WRITE);
@@ -321,7 +307,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             body.put(bb);
                         }
 
-                        Req req = findRequest(url, context, header, method, body);
+                        ReqRes req = findRequest(url, context, header, method, body);
                         key.attach(req);
                         if (body != null && body.remaining() > 0) {
                             key.interestOps(SelectionKey.OP_READ);
@@ -334,7 +320,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     if (key.isWritable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
-                        Req reply = (Req) key.attachment();
+                        ReqRes reply = (ReqRes) key.attachment();
                         if (reply == null) {
                             continue PROCESS;
                         }
@@ -370,7 +356,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         LOG.fine("All notified, exiting server");
     }
 
-    private Req findRequest(
+    private ReqRes findRequest(
         String url, Map<String, ? extends Object> args, String header,
         String method, ByteBuffer bodyToFill
     ) {
@@ -391,12 +377,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
         }
 
-        int last = url.length() - 1;
         for (Map.Entry<String, Handler> entry : maps.entrySet()) {
             if (url.startsWith(entry.getKey())) {
                 final Handler h = entry.getValue();
-                Res res = new Res();
-                return new Req(h, url, args, host, port, header, method, bodyToFill, res, args, langs);
+                return new ReqRes(h, url, args, host, port, header, method, bodyToFill, args, langs);
             }
         }
         throw new IllegalStateException("No mapping for " + url + " among " + maps);
@@ -485,7 +469,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         return server;
     }
 
-    final class Req extends SelectionKey {
+    final class ReqRes extends SelectionKey {
         private final Handler h;
         final String url;
         final String hostName;
@@ -494,22 +478,25 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         final String header;
         final String method;
         final ByteBuffer body;
-        private final Res res;
         private final Map<String, ? extends Object> context;
         private final String langs;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
         private SelectionKey delegate;
+        private final ByteArrayOutputStream os = new ByteArrayOutputStream();
+        final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
+        final Map<String,String> headers = new LinkedHashMap<>();
+        String contentType;
+        int status = 200;
+        boolean suspended;
 
-        public Req(
+        public ReqRes(
             Handler h,
             String url, Map<String, ? extends Object> args, String host,
             int port, String header, String method, ByteBuffer body,
-            Res res,
             Map<String, ? extends Object> a,
             String langs
         ) {
             this.h = h;
-            this.res = res;
             this.url = url;
             this.hostName = host;
             this.hostPort = port;
@@ -527,14 +514,10 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             if (bb != null) {
                 Map<String,String> headerAttrs = Collections.emptyMap();
                 String mime;
-                int status = 200;
-                h.service(SimpleServer.this, this, res);
-                headerAttrs = res.headers;
+                h.service(SimpleServer.this, this, this);
+                headerAttrs = headers;
 
-                mime = res.contentType;
-                if (res.status > 0) {
-                    status = res.status;
-                }
+                mime = contentType;
                 if (mime == null) {
                     mime = "content/unknown"; // NOI18N
                 }
@@ -544,7 +527,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 ((Buffer)bb).clear();
                 bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
                 bb.put("Connection: close\r\n".getBytes());
-                bb.put("Server: Browser Presenter\r\n".getBytes());
+                bb.put("Server: Browser PReqenter\r\n".getBytes());
                 bb.put(date(null));
                 bb.put("\r\n".getBytes());
                 bb.put(("Content-Type: " + mime + "\r\n").getBytes());
@@ -567,11 +550,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
 
             try {
                 if (attachment() == null) {
-                    if (res.suspended) {
+                    if (suspended) {
                         channel.write(ByteBuffer.allocate(0));
                         return;
                     }
-                    ByteBuffer out = ByteBuffer.wrap(res.toByteArray());
+                    ByteBuffer out = ByteBuffer.wrap(toByteArray());
                     attach(out);
                 }
                 ByteBuffer bb = (ByteBuffer) attachment();
@@ -587,6 +570,11 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     key.cancel();
                 }
             }
+        }
+
+        byte[] toByteArray() throws IOException {
+            writer.close();
+            return os.toByteArray();
         }
 
         public ByteBuffer bodyToFill() {
@@ -632,5 +620,5 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         public int readyOps() {
             return delegate.readyOps();
         }
-    } // end of DynamicRequest
+    }
 }

@@ -35,13 +35,11 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -191,29 +189,6 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
     <WebSocket> void send(WebSocket socket, String s) {
     }
 
-    static final class Req {
-        final String url;
-        final String hostName;
-        final int hostPort;
-        final Map<String, ? extends Object> args;
-        final String header;
-        final String method;
-        final ByteBuffer body;
-
-        Req(
-            String url, Map<String, ? extends Object> args, String host,
-            int port, String header, String method, ByteBuffer body
-        ) {
-            this.url = url;
-            this.hostName = host;
-            this.hostPort = port;
-            this.args = args;
-            this.header = header;
-            this.method = method;
-            this.body = body;
-        }
-    }
-
     static final class Res {
         private final ByteArrayOutputStream os = new ByteArrayOutputStream();
         final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
@@ -304,9 +279,9 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
                         int read = channel.read(bb);
-                        if (key.attachment() instanceof Request) {
+                        if (key.attachment() instanceof Req) {
                             ((Buffer)bb).flip();
-                            Request req = (Request) key.attachment();
+                            Req req = (Req) key.attachment();
                             req.bodyToFill().put(bb);
                             if (req.bodyToFill().remaining() == 0) {
                                 key.interestOps(SelectionKey.OP_WRITE);
@@ -346,7 +321,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                             body.put(bb);
                         }
 
-                        Request req = findRequest(url, context, header, method, body);
+                        Req req = findRequest(url, context, header, method, body);
                         key.attach(req);
                         if (body != null && body.remaining() > 0) {
                             key.interestOps(SelectionKey.OP_READ);
@@ -359,7 +334,7 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                     if (key.isWritable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
-                        Request reply = (Request) key.attachment();
+                        Req reply = (Req) key.attachment();
                         if (reply == null) {
                             continue PROCESS;
                         }
@@ -395,92 +370,36 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         LOG.fine("All notified, exiting server");
     }
 
-    private Request findRequest(
+    private Req findRequest(
         String url, Map<String, ? extends Object> args, String header,
         String method, ByteBuffer bodyToFill
     ) {
-        if (url != null) {
-            LOG.log(Level.FINE, "Searching for page {0}", url);
-            Matcher m = PATTERN_LANGS.matcher(header);
-            String langs = m.find() ? m.group(1) : null;
-            if (langs != null) {
-                LOG.log(Level.FINE, "Accepted languages {0}", langs);
-            }
-            Matcher m2 = PATTERN_HOST.matcher(header);
-            String host = null;
-            int port = -1;
-            if (m2.find()) {
-                host = m2.group(1);
-                port = Integer.parseInt(m2.group(2));
-            }
-            if (host != null) {
-                LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
-            }
-
-            String pref = url;
-            int last = pref.length() - 1;
-            for (Map.Entry<String, Handler> entry : maps.entrySet()) {
-                if (url.startsWith(entry.getKey())) {
-                    final Handler h = entry.getValue();
-                    Req req = new Req(url, args, host, port, header, method, bodyToFill);
-                    Res res = new Res();
-                    UnknownPageRequest upr = UnknownPageRequest.create(new HeaderProvider() {
-                        @Override
-                        public void replyHeader(Header header, Response response) throws IOException {
-                            h.service(SimpleServer.this, req, res);
-                            if (res.contentType != null) {
-                                response.setMimeType(res.contentType);
-                            }
-                            response.setHeaders(res.headers);
-                            response.status = res.status;
-                        }
-                    }, new ContentProvider() {
-                        @Override
-                        public void replyTo(Header header, SocketChannel ch, SelectionKey key) throws IOException {
-                            if (key.attachment() == null) {
-                                if (res.suspended) {
-                                    ch.write(ByteBuffer.allocate(0));
-                                    return;
-                                }
-                                ByteBuffer out = ByteBuffer.wrap(res.toByteArray());
-                                key.attach(out);
-                            }
-                            ByteBuffer bb = (ByteBuffer) key.attachment();
-                            if (bb.remaining() > 0) {
-                                ch.write(bb);
-                            } else {
-                                ch.close();
-                            }
-                        }
-                    });
-                    return new DynamicRequest(upr, null, url.substring(last + 1), args, langs, method, bodyToFill);
-                }
-            }
-
-            while (pref != null) {
-                LOG.log(Level.INFO, "Page not found trying {0}", url);
-                Object obj = null;
-                if (obj != null) {
-                    return new DynamicRequest((UnknownPageRequest) obj, null, url.substring(last + 1), args, langs, method, null);
-                }
-                if (pref.length() > 0) {
-                    last = pref.lastIndexOf('/');
-                    if (last < 0) {
-                        pref = "";
-                    } else {
-                        pref = pref.substring(0, last);
-                    }
-                } else {
-                    pref = null;
-                }
-            }
+        LOG.log(Level.FINE, "Searching for page {0}", url);
+        Matcher m = PATTERN_LANGS.matcher(header);
+        String langs = m.find() ? m.group(1) : null;
+        if (langs != null) {
+            LOG.log(Level.FINE, "Accepted languages {0}", langs);
+        }
+        Matcher m2 = PATTERN_HOST.matcher(header);
+        String host = null;
+        int port = -1;
+        if (m2.find()) {
+            host = m2.group(1);
+            port = Integer.parseInt(m2.group(2));
+        }
+        if (host != null) {
+            LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
         }
 
-        String msg = "<h1>Strange HTTP Request</h1>\n"
-                + "Url: <code>" + url + "</code><p>"
-                + "Header: <pre>" + header + "</pre>";
-        LOG.warning(msg);
-        return new MsgRequest(msg);
+        int last = url.length() - 1;
+        for (Map.Entry<String, Handler> entry : maps.entrySet()) {
+            if (url.startsWith(entry.getKey())) {
+                final Handler h = entry.getValue();
+                Res res = new Res();
+                return new Req(h, url, args, host, port, header, method, bodyToFill, res, args, langs);
+            }
+        }
+        throw new IllegalStateException("No mapping for " + url + " among " + maps);
     }
 
     private static void parseArgs(final Map<String, ? super String> context, final String args) {
@@ -566,37 +485,36 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         return server;
     }
 
-    private static interface Request {
-
-        public void handle(SelectionKey key, SocketChannel channel) throws IOException;
-
-        public ByteBuffer bodyToFill();
-    }
-
-    private final class DynamicRequest extends SelectionKey
-            implements Request {
-
-        private final UnknownPageRequest upr;
-        private final String url;
+    final class Req extends SelectionKey {
+        private final Handler h;
+        final String url;
+        final String hostName;
+        final int hostPort;
+        final Map<String, ? extends Object> args;
+        final String header;
+        final String method;
+        final ByteBuffer body;
+        private final Res res;
         private final Map<String, ? extends Object> context;
         private final String langs;
-        private final String method;
-        final ByteBuffer body;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
         private SelectionKey delegate;
-        private Header header;
 
-        public DynamicRequest(
-                UnknownPageRequest v,
-                Object pages,
-                String u,
-                Map<String, ? extends Object> a,
-                String langs,
-                String method,
-                ByteBuffer body
+        public Req(
+            Handler h,
+            String url, Map<String, ? extends Object> args, String host,
+            int port, String header, String method, ByteBuffer body,
+            Res res,
+            Map<String, ? extends Object> a,
+            String langs
         ) {
-            this.upr = v;
-            this.url = u;
+            this.h = h;
+            this.res = res;
+            this.url = url;
+            this.hostName = host;
+            this.hostPort = port;
+            this.header = header;
+            this.args = args;
             this.context = a;
             this.method = method;
             this.langs = langs;
@@ -604,30 +522,18 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
         }
 
         public void handle(SelectionKey key, SocketChannel channel) throws IOException {
-            ContentProvider h = upr.handler;
             delegate = key;
 
             if (bb != null) {
-                header = new Header(url, context, langs);
-
                 Map<String,String> headerAttrs = Collections.emptyMap();
-                String mime = upr.mimeType;
+                String mime;
                 int status = 200;
-                if (mime == null) {
-                    Response response = new Response();
-                    upr.header.replyHeader(header, response);
-                    headerAttrs = response.headers;
+                h.service(SimpleServer.this, this, res);
+                headerAttrs = res.headers;
 
-                    if (response.redirect != null) {
-                        Request req = findRequest(response.redirect, response.args, "", method, body);
-                        key.attach(req);
-                        return;
-                    }
-
-                    mime = response.mimeType;
-                    if (response.status > 0) {
-                        status = response.status;
-                    }
+                mime = res.contentType;
+                if (res.status > 0) {
+                    status = res.status;
                 }
                 if (mime == null) {
                     mime = "content/unknown"; // NOI18N
@@ -659,10 +565,21 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
                 }
             }
 
-            LOG.log(Level.FINE, "delegating to handler: {0}", h.getClass().getName());
             try {
-                h.replyTo(header, channel, this);
-                LOG.log(Level.FINE, "replyTo delegated, is channel open: {0}", channel.isOpen());
+                if (attachment() == null) {
+                    if (res.suspended) {
+                        channel.write(ByteBuffer.allocate(0));
+                        return;
+                    }
+                    ByteBuffer out = ByteBuffer.wrap(res.toByteArray());
+                    attach(out);
+                }
+                ByteBuffer bb = (ByteBuffer) attachment();
+                if (bb.remaining() > 0) {
+                    channel.write(bb);
+                } else {
+                    channel.close();
+                }
             } finally {
                 if (!channel.isOpen()) {
                     LOG.log(Level.FINE, "channel not open, closing");
@@ -672,188 +589,48 @@ final class SimpleServer extends HttpServer<SimpleServer.Req, SimpleServer.Res, 
             }
         }
 
-        @Override
         public ByteBuffer bodyToFill() {
             return body;
         }
 
         @Override
         public String toString() {
-            return "DynamicRequest[" + url + ", " + upr.getClass().getName() + "]";
+            return "Request[" + url + "]";
         }
 
+        @Override
         public SelectableChannel channel() {
             return delegate.channel();
         }
 
+        @Override
         public Selector selector() {
             return delegate.selector();
         }
 
+        @Override
         public boolean isValid() {
             return delegate.isValid();
         }
 
+        @Override
         public void cancel() {
             delegate.cancel();
         }
 
+        @Override
         public int interestOps() {
             return delegate.interestOps();
         }
 
+        @Override
         public SelectionKey interestOps(int arg0) {
             return delegate.interestOps(arg0);
         }
 
+        @Override
         public int readyOps() {
             return delegate.readyOps();
         }
     } // end of DynamicRequest
-
-    private static final class MsgRequest implements Request {
-
-        private final String msg;
-        private ByteBuffer bb;
-        private int index;
-
-        public MsgRequest(String a) {
-            this.msg = a;
-        }
-
-        public void handle(SelectionKey key, SocketChannel channel) throws IOException {
-            if (bb == null) {
-                bb = ByteBuffer.allocate(8192);
-                bb.put("HTTP/1.1 200 OK\r\n".getBytes());
-                bb.put("Connection: close\r\n".getBytes());
-                bb.put("Server: http://dvbcentral.sf.net\r\n".getBytes());
-                bb.put(date(null));
-                bb.put("\r\n".getBytes());
-                bb.put(("Content-Type: text/html\r\n").getBytes());
-                bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
-                bb.put("\r\n".getBytes());
-                ((Buffer)bb).flip();
-                channel.write(bb);
-                index = 0;
-            } else {
-                if (index == 0) {
-                    LOG.warning(msg);
-                }
-                LOG.log(Level.FINE, "writing at {0}", index);
-                ((Buffer)bb).clear();
-                byte[] arr = msg.getBytes();
-                bb.put(arr, index, arr.length - index);
-                index += bb.position();
-                LOG.log(Level.FINE, "something written new index at {0}", index);
-                ((Buffer)bb).flip();
-                channel.write(bb);
-                if (index == arr.length) {
-                    LOG.fine("msg written, closing channel");
-                    channel.close();
-                }
-            }
-
-        }
-
-        @Override
-        public ByteBuffer bodyToFill() {
-            return null;
-        }
-
-        @Override
-        public String toString() {
-            return "MsgRequest[" + msg + "]";
-        }
-    } // end of MsgRequest
-
-    static class Response {
-        String mimeType;
-        String redirect;
-        Map<String, ? extends Object> args;
-        Map<String, String> headers;
-        private int status;
-
-        void setMimeType(String mimeType) {
-            this.mimeType = mimeType;
-        }
-
-        void redirect(String page, Map<String, ? extends Object> args) {
-            this.redirect = page;
-            this.args = args;
-        }
-
-        void setHeaders(Map<String, String> headers) {
-            this.headers = headers;
-        }
-    }
-
-    static final class UnknownPageRequest {
-
-        final String mimeType;
-        final ContentProvider handler;
-        final HeaderProvider header;
-
-        UnknownPageRequest(String mimeType, ContentProvider h, HeaderProvider head) {
-            this.mimeType = mimeType;
-            this.handler = h;
-            this.header = head;
-        }
-
-        static UnknownPageRequest create(String mimeType, ContentProvider h) {
-            return new UnknownPageRequest(mimeType, h, null);
-        }
-
-        static UnknownPageRequest create(HeaderProvider header, ContentProvider h) {
-            return new UnknownPageRequest(null, h, header);
-        }
-    }
-
-    interface ContentProvider {
-
-        public void replyTo(
-                Header header,
-                SocketChannel ch,
-                SelectionKey key
-        ) throws IOException;
-    }
-
-    interface HeaderProvider {
-
-        public void replyHeader(Header header, Response response) throws IOException;
-    }
-
-    static final class Header {
-
-        private final Map<String, String> args;
-        private final String path;
-        private final List<Locale> langs;
-
-        Header(String path, Map<String, ? extends Object> args, String acceptLanguages) {
-            this.path = path;
-            this.args = (Map<String, String>) args;
-
-            List<Locale> arr = new ArrayList<Locale>();
-            if (acceptLanguages != null) {
-                for (String lang : acceptLanguages.split("[ ,]+")) {
-                    if (lang.length() > 0) {
-                        arr.add(new Locale(lang));
-                    }
-                }
-            }
-            langs = arr;
-        }
-
-        public Map<String, String> getArgs() {
-            return args;
-        }
-
-        public String getPath() {
-            return path;
-        }
-
-        public List<Locale> getLocales() {
-            return langs;
-        }
-    }
-
 }

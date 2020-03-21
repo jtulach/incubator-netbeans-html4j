@@ -84,7 +84,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     void init(int from, int to) throws IOException {
-        connection = Selector.open();
+        this.connection = Selector.open();
         this.min = from;
         this.max = to;
     }
@@ -165,12 +165,15 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     void suspend(ReqRes r) {
+        r.interestOps(0);
         r.suspended = true;
     }
 
     @Override
     void resume(ReqRes r) {
         r.suspended = false;
+        r.interestOps(SelectionKey.OP_WRITE);
+        connectionWakeup();
     }
 
     @Override
@@ -198,6 +201,13 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             return getServer().socket().getLocalPort();
         } catch (IOException ex) {
             return -1;
+        }
+    }
+
+    void connectionWakeup() {
+        Selector localConnection = this.connection;
+        if (localConnection != null) {
+            localConnection.wakeup();
         }
     }
 
@@ -583,7 +593,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
         @Override
         public String toString() {
-            return "Request[" + url + "]";
+            return "Request[" + method + ":" + url + "]";
         }
 
         @Override

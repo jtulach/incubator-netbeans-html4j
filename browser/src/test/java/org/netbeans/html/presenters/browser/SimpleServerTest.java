@@ -38,17 +38,17 @@ public class SimpleServerTest {
     }
 
     @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
-    public void testConnectionToTheServer(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    public void testConnectionToTheServer(String name, Supplier<HttpServer<?,?,?,?>> serverProvider) throws IOException {
         if (serverProvider == null) {
             return;
         }
         int min = 42343;
         int max = 49343;
-        HttpServer<?, ?, ?> server = serverProvider.get();
+        HttpServer<?, ?, ?, ?> server = serverProvider.get();
         server.init(min, max);
         server.addHttpHandler(new HttpServer.Handler() {
             @Override
-            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+            <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException {
                 assertEquals(server.getServerName(rqst), "localhost", "Connecting from localhost");
                 assertEquals(server.getServerPort(rqst), server.getPort(), "Connecting via local port");
                 assertEquals(server.getMethod(rqst), "GET", "Requesting GET");
@@ -102,17 +102,17 @@ public class SimpleServerTest {
     }
 
     @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
-    public void testHeadersAndBody(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    public void testHeadersAndBody(String name, Supplier<HttpServer<?,?,?,?>> serverProvider) throws IOException {
         if (serverProvider == null) {
             return;
         }
         int min = 42343;
         int max = 49343;
-        HttpServer<?, ?, ?> server = serverProvider.get();
+        HttpServer<?, ?, ?, ?> server = serverProvider.get();
         server.init(min, max);
         server.addHttpHandler(new HttpServer.Handler() {
             @Override
-            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+            <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException {
                 StringBuilder sb = new StringBuilder(server.getBody(rqst));
 
                 server.setCharacterEncoding(rspns, "UTF-8");
@@ -174,19 +174,19 @@ public class SimpleServerTest {
     }
 
     @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
-    public void testWaitForData(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    public void testWaitForData(String name, Supplier<HttpServer<?,?,?,?>> serverProvider) throws IOException {
         if (serverProvider == null) {
             return;
         }
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         int min = 32343;
         int max = 33343;
-        HttpServer<?, ?, ?> server = serverProvider.get();
+        HttpServer<?, ?, ?, ?> server = serverProvider.get();
         server.init(min, max);
 
         class HandlerImpl extends HttpServer.Handler {
             @Override
-            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+            <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException {
                 server.setCharacterEncoding(rspns, "UTF-8");
                 server.setContentType(rspns, "text/x-test");
                 Browser.cors(server, rspns);
@@ -213,21 +213,21 @@ public class SimpleServerTest {
     }
 
     @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
-    public void testEnormousBody(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws IOException {
+    public void testEnormousBody(String name, Supplier<HttpServer<?,?,?, ?>> serverProvider) throws IOException {
         if (serverProvider == null) {
             return;
         }
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         int min = 32343;
         int max = 33343;
-        HttpServer<?, ?, ?> server = serverProvider.get();
+        HttpServer<?, ?, ?, ?> server = serverProvider.get();
         server.init(min, max);
 
         String id = veryLongId();
 
         class HandlerImpl extends HttpServer.Handler {
             @Override
-            <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+            <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException {
                 server.setCharacterEncoding(rspns, "UTF-8");
                 server.setContentType(rspns, "text/plain");
                 Browser.cors(server, rspns);

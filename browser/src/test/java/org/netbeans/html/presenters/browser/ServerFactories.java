@@ -35,8 +35,8 @@ public final class ServerFactories {
 
     @DataProvider(name = "serverFactories")
     public static Object[][] serverFactories() {
-        Supplier<HttpServer<?,?,?>> simple = SimpleServer::new;
-        Supplier<HttpServer<?,?,?>> grizzly = GrizzlyServer::new;
+        Supplier<HttpServer<?,?,?,?>> simple = SimpleServer::new;
+        Supplier<HttpServer<?,?,?,?>> grizzly = GrizzlyServer::new;
         return new Object[][]{
             {"Simple", simple}, {"Grizzly", grizzly}, {"None", null}
         };
@@ -50,13 +50,13 @@ public final class ServerFactories {
         Fn.Presenter[] arr = new Fn.Presenter[factories.length];
         for (int i = 0; i < factories.length; i++) {
             Object[] pair = factories[i];
-            arr[i] = collect(browserName, (String) pair[0], (Supplier<HttpServer<?,?,?>>) pair[1], res, test, tests);
+            arr[i] = collect(browserName, (String) pair[0], (Supplier<HttpServer<?,?,?,?>>) pair[1], res, test, tests);
         }
         return arr;
     }
 
     static Fn.Presenter collect(
-        String browserName, String prefix, Supplier<HttpServer<?,?,?>> serverProvider,
+        String browserName, String prefix, Supplier<HttpServer<?,?,?,?>> serverProvider,
         Collection<? super ITest> res,
         Class<? extends Annotation> test, Supplier<Class[]> tests
     ) throws Exception {

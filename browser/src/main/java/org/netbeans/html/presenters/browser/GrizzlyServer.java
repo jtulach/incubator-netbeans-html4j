@@ -18,16 +18,21 @@
  */
 package org.netbeans.html.presenters.browser;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import org.glassfish.grizzly.PortRange;
 import org.glassfish.grizzly.http.io.InputBuffer;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
 import org.glassfish.grizzly.http.server.Response;
+import org.netbeans.html.boot.spi.Fn;
 
-final class GrizzlyServer extends HttpServer<Request, Response, Object> {
+final class GrizzlyServer extends HttpServer<Request, Response, Object, GrizzlyServer.Context> {
     private org.glassfish.grizzly.http.server.HttpServer server;
 
     @Override
@@ -146,4 +151,56 @@ final class GrizzlyServer extends HttpServer<Request, Response, Object> {
     <WebSocket> void send(WebSocket socket, String s) {
     }
 
+    class Context implements ThreadFactory {
+        private final String id;
+        Executor RUN;
+        Thread RUNNER;
+
+        Context(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, "Processor for " + id);
+            RUNNER = t;
+            return t;
+        }
+    }
+
+    @Override
+    Context initializeRunner(String id) {
+        Context c = new Context(id);
+        c.RUN = Executors.newSingleThreadExecutor(c);
+        return c;
+    }
+
+    @Override
+    final void runSafe(Context c, final Runnable r, final Fn.Presenter presenter) {
+        class Wrap implements Runnable {
+            @Override
+            public void run() {
+                if (presenter != null) {
+                    try (Closeable c = Fn.activate(presenter)) {
+                        r.run();
+                    } catch (IOException ex) {
+                        // go on
+                    }
+                } else {
+                    r.run();
+                }
+            }
+        }
+        if (c.RUNNER == Thread.currentThread()) {
+            if (presenter != null) {
+                Runnable w = new Wrap();
+                w.run();
+            } else {
+                r.run();
+            }
+        } else {
+            Runnable w = new Wrap();
+            c.RUN.execute(w);
+        }
+    }
 }

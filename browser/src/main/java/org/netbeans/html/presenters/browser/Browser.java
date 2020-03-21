@@ -77,7 +77,7 @@ Executor, Closeable {
     private Runnable onPageLoad;
     private Command current;
     private final Config config;
-    private final Supplier<HttpServer<?, ?, ?>> serverProvider;
+    private final Supplier<HttpServer<?, ?, ?, ?>> serverProvider;
 
     /** Default constructor. Reads configuration from properties. The actual browser to
      * be launched can be influenced by value of
@@ -117,7 +117,7 @@ Executor, Closeable {
         this(findCalleeClassName(), config, null);
     }
 
-    Browser(String app, Config config, Supplier<HttpServer<?,?,?>> serverProvider) {
+    Browser(String app, Config config, Supplier<HttpServer<?,?,?, ?>> serverProvider) {
         this.serverProvider = serverProvider != null ? serverProvider : SimpleServer::new;
         this.app = app;
         this.config = new Config(config);
@@ -125,7 +125,7 @@ Executor, Closeable {
 
     @Override
     public final void execute(final Runnable r) {
-        current.runSafe(r, true);
+        current.execute(r);
     }
 
     @Override
@@ -328,7 +328,7 @@ Executor, Closeable {
         }
     }
 
-    static <Response> void cors(HttpServer<?, Response, ?> s, Response r) {
+    static <Response> void cors(HttpServer<?, Response, ?, ?> s, Response r) {
         s.setCharacterEncoding(r, "UTF-8");
         s.addHeader(r, "Access-Control-Allow-Origin", "*");
         s.addHeader(r, "Access-Control-Allow-Credentials", "true");
@@ -344,7 +344,7 @@ Executor, Closeable {
         }
 
         @Override
-        public <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException {
+        public <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException {
             String path = server.getRequestURI(rqst);
             cors(server, rspns);
             if ("/".equals(path) || "index.html".equals(path)) {
@@ -566,23 +566,22 @@ Executor, Closeable {
         return "org.netbeans.html"; // NOI18N
     }
 
-    private static final class Command<Request, Response> extends Object
-    implements Executor, ThreadFactory {
-        private final HttpServer<Request, Response, ?> server;
+    private static final class Command<Request, Response, Runner> extends Object
+    implements Executor {
+        private final HttpServer<Request, Response, ?, Runner> server;
         private final Queue<Object> exec;
         private final Browser browser;
         private final String id;
         private final String prefix;
-        private final Executor RUN;
-        private Thread RUNNER;
+        private Runner RUNNER;
         private Response suspended;
         private boolean initialized;
         private final ProtoPresenter presenter;
 
-        Command(HttpServer<Request, Response, ?> s, Browser browser, String prefix) {
+        Command(HttpServer<Request, Response, ?, Runner> s, Browser browser, String prefix) {
             this.server = s;
-            this.RUN = Executors.newSingleThreadExecutor(this);
             this.id = UUID.randomUUID().toString();
+            this.RUNNER = s.initializeRunner(this.id);
             this.exec = new LinkedList<>();
             this.prefix = prefix;
             this.browser = browser;
@@ -599,48 +598,8 @@ Executor, Closeable {
         }
 
         @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r, "Processor for " + id);
-            RUNNER = t;
-            return t;
-        }
-
-        @Override
         public final void execute(final Runnable r) {
-            runSafe(r, true);
-        }
-
-        final void runSafe(final Runnable r, final boolean context) {
-            class Wrap implements Runnable {
-                @Override
-                public void run() {
-                    if (context) {
-                        Closeable c = Fn.activate(Command.this.presenter);
-                        try {
-                            r.run();
-                        } finally {
-                            try {
-                                c.close();
-                            } catch (IOException ex) {
-                                // ignore
-                            }
-                        }
-                    } else {
-                        r.run();
-                    }
-                }
-            }
-            if (RUNNER == Thread.currentThread()) {
-                if (context) {
-                    Runnable w = new Wrap();
-                    w.run();
-                } else {
-                    r.run();
-                }
-            } else {
-                Runnable w = new Wrap();
-                RUN.execute(w);
-            }
+            server.runSafe(this.RUNNER, r, this.presenter);
         }
 
         final synchronized void add(Object obj) {
@@ -754,7 +713,7 @@ Executor, Closeable {
         }
 
         void dispatch(Runnable r) {
-            runSafe(r, false);
+            server.runSafe(RUNNER, r, null);
         }
 
 

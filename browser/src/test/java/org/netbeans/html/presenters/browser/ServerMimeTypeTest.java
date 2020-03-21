@@ -35,7 +35,7 @@ import org.testng.annotations.Test;
 
 public class ServerMimeTypeTest {
     @Test(dataProviderClass = ServerFactories.class, dataProvider = "serverFactories")
-    public void checkMimeTypes(String name, Supplier<HttpServer<?,?,?>> serverProvider) throws Exception {
+    public void checkMimeTypes(String name, Supplier<HttpServer<?,?,?,?>> serverProvider) throws Exception {
         final Thread main = Thread.currentThread();
         final int[] loaded = { 0 };
 

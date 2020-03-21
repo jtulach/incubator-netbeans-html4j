@@ -43,7 +43,7 @@ final class DynamicHTTP extends Handler {
     }
     
     @Override
-    public <Request, Response> void service(HttpServer<Request, Response, ?> s, Request request, Response response) throws IOException {
+    public <Request, Response> void service(HttpServer<Request, Response, ?, ?> s, Request request, Response response) throws IOException {
         if ("/dynamic".equals(s.getRequestURI(request))) {
             String mimeType = s.getParameter(request, "mimeType");
             List<String> params = new ArrayList<>();
@@ -173,7 +173,7 @@ final class DynamicHTTP extends Handler {
         }
 
         @Override
-        public <WebSocket> void onMessage(HttpServer<?,?, WebSocket> server, WebSocket socket, String text) {
+        public <WebSocket> void onMessage(HttpServer<?,?, WebSocket, ?> server, WebSocket socket, String text) {
             try {
                 r.httpContent.reset();
                 ByteArrayOutputStream out = new ByteArrayOutputStream();

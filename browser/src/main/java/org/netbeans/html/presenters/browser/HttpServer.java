@@ -21,8 +21,9 @@ package org.netbeans.html.presenters.browser;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
+import org.netbeans.html.boot.spi.Fn;
 
-abstract class HttpServer<Request, Response, WebSocket> {
+abstract class HttpServer<Request, Response, WebSocket, Runner> {
     abstract void init(int from, int to) throws IOException;
     abstract void start() throws IOException;
     abstract void shutdownNow();
@@ -48,11 +49,14 @@ abstract class HttpServer<Request, Response, WebSocket> {
 
     abstract <WebSocket> void send(WebSocket socket, String s);
 
+    abstract Runner initializeRunner(String id);
+    abstract void runSafe(Runner runner, Runnable code, Fn.Presenter presenter);
+
     static abstract class Handler {
-        abstract <Request, Response> void service(HttpServer<Request, Response, ?> server, Request rqst, Response rspns) throws IOException;
+        abstract <Request, Response> void service(HttpServer<Request, Response, ?, ?> server, Request rqst, Response rspns) throws IOException;
     }
 
     static abstract class WebSocketApplication {
-        abstract <WebSocket> void onMessage(HttpServer<?, ?, WebSocket> server, WebSocket socket, String text);
+        abstract <WebSocket> void onMessage(HttpServer<?, ?, WebSocket, ?> server, WebSocket socket, String text);
     }
 }

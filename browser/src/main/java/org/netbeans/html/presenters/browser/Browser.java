@@ -71,7 +71,7 @@ import org.openide.util.lookup.ServiceProvider;
 public final class Browser implements Fn.Presenter, Fn.KeepAlive, Flushable,
 Executor, Closeable {
     static final Logger LOG = Logger.getLogger(Browser.class.getName());
-    private final Map<String,Command> SESSIONS = new HashMap<String, Command>();
+    private final Map<String,Command> SESSIONS = new HashMap<>();
     private final String app;
     private HttpServer server;
     private Runnable onPageLoad;
@@ -98,6 +98,10 @@ Executor, Closeable {
      * If the property is not specified the system tries <b>GTK</b> mode first,
      * followed by <b>AWT</b> and then tries to execute <code>xdg-open</code>
      * (default LINUX command to launch a browser from a shell script).
+     * <p>
+     * In addition to the above properties, it is possible to also enable
+     * debugging by setting <code>com.dukescript.presenters.browserDebug=true</code>.
+     *
      * @throws Exception
      */
     public Browser() throws Exception {
@@ -136,11 +140,13 @@ Executor, Closeable {
     }
 
     static HttpServer findServer(Object obj) {
-        Command c = null;
+        Command c;
         if (obj instanceof Command) {
             c = (Command) obj;
         } else if (obj instanceof ProtoPresenter) {
             c = ((ProtoPresenter) obj).lookup(Command.class);
+        } else {
+            throw new IllegalArgumentException("Cannot find server for " + obj);
         }
         return c.browser.server();
     }
@@ -241,6 +247,7 @@ Executor, Closeable {
     public final static class Config {
         String browser;
         Integer port;
+        boolean debug = Boolean.getBoolean("com.dukescript.presenters.browserDebug");
 
         /**
          * Default constructor.
@@ -251,6 +258,7 @@ Executor, Closeable {
         private Config(Config copy) {
             this.browser = copy.browser;
             this.port = copy.port;
+            this.debug = copy.debug;
         }
 
         /** The command to use when invoking a browser. Possible values:
@@ -287,6 +295,19 @@ Executor, Closeable {
             return this;
         }
 
+        /** Enable or disable debugging. The default value is taken from a property
+         * {@code com.dukescript.presenters.browserDebug}. If the property is
+         * not specified, then the default value is {@code false}.
+         * 
+         * @param debug true or false
+         * @return this instance
+         * @since 1.8
+         */
+        public Config debug(boolean debug) {
+            this.debug = debug;
+            return this;
+        }
+
         final String getBrowser() {
             if (browser != null) {
                 return browser;
@@ -298,9 +319,9 @@ Executor, Closeable {
             if (port != null) {
                 return port;
             }
-            String port = System.getProperty("com.dukescript.presenters.browserPort"); // NOI18N
+            String browserPort = System.getProperty("com.dukescript.presenters.browserPort"); // NOI18N
             try {
-                return Integer.parseInt(port);
+                return Integer.parseInt(browserPort);
             } catch (NumberFormatException ex) {
                 return -1;
             }
@@ -429,13 +450,19 @@ Executor, Closeable {
         private void emitScript(Writer w, String prefix, String id) throws IOException {
             w.write("  <script id='exec' type='text/javascript'>");
             w.write("\n"
-                    + "function waitForCommand() {\n"
+                    + "function waitForCommand(counter) {\n"
                     + "  try {\n"
                     + "    if (waitForCommand.seenError) {\n"
                     + "      console.warn('Disconnected from " + prefix + "');\n"
                     + "      return;\n"
                     + "    };\n"
-                    + "    var request = new XMLHttpRequest();\n"
+                    + "    var request = new XMLHttpRequest();\n");
+            if (Browser.this.config.debug) {
+                w.write(""
+                    + "    console.log('GET[' + counter + ']....');\n"
+                );
+            }
+            w.write(""
                     + "    request.open('GET', '" + prefix + "command.js?id=" + id + "', true);\n"
                     + "    request.setRequestHeader('Content-Type', 'text/plain; charset=utf-8');\n"
                     + "    request.onerror = function(ev) {\n"
@@ -445,25 +472,71 @@ Executor, Closeable {
                     + "    request.onreadystatechange = function() {\n"
                     + "      if (this.readyState!==4) return;\n"
                     + "      try {\n"
+            );
+            if (Browser.this.config.debug) {
+                w.write(""
+                    + "        console.log('...GET[' + counter + '] got something ' + this.responseText.substring(0,80));\n"
                     + "        var cmd = document.getElementById('cmd');\n"
                     + "        if (cmd) cmd.innerHTML = this.responseText.substring(0,80);\n"
+                );
+            }
+            w.write(""
                     + "        (0 || eval)(this.responseText);\n"
                     + "      } catch (e) {\n"
                     + "        console.warn(e); \n"
                     + "      } finally {\n"
-                    + "        waitForCommand();\n"
+                    + "        waitForCommand(counter + 1);\n"
                     + "      }\n"
                     + "    };\n"
                     + "    request.send();\n"
                     + "  } catch (e) {\n"
                     + "    console.warn(e);\n"
-                    + "    waitForCommand();\n"
+                    + "    waitForCommand(counter + 1);\n"
                     + "  }\n"
                     + "}\n"
-                    + "waitForCommand();\n"
+                    + "waitForCommand(1);\n"
             );
             w.write("  </script>\n");
         }
+    }
+
+    String createCallbackFn(String prefix, String id) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("this.toBrwsrSrvr = function(name, a1, a2, a3, a4) {\n"
+            + "var url = '").append(prefix).append("command.js?id=").append(id).append("&name=' + name;\n"
+            + "var body = 'p0=' + encodeURIComponent(a1);\n"
+            + "body += '&p1=' + encodeURIComponent(a2);\n"
+            + "body += '&p2=' + encodeURIComponent(a3);\n"
+            + "body += '&p3=' + encodeURIComponent(a4);\n"
+            + "var request = new XMLHttpRequest();\n"
+        );
+        if (Browser.this.config.debug) {
+            sb.append(""
+            + "console.log('PUT ... ' + body.substring(0, 80));\n"
+            + "var now = new Date().getTime();\n"
+            );
+        }
+        sb.append(""
+            + "request.open('PUT', url, false);\n"
+            + "request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8');\n"
+            + "request.send(body);\n"
+            + "var txt = request.responseText;\n"
+        );
+        if (Browser.this.config.debug) {
+            sb.append(""
+            + "var then = new Date().getTime();\n"
+            + "if (txt && txt !== 'null') {\n"
+            + "  var cmd = document.getElementById('cmd');\n"
+            + "  if (cmd) cmd.innerHTML = txt.substring(0,80);\n"
+            + "}\n"
+            + "console.log('... PUT [' + (then - now) + 'ms]: ' + txt.substring(0, 80));\n"
+            );
+        }
+        sb.append(""
+            + "return txt;\n"
+            + "};\n"
+        );
+        return sb.toString();
     }
 
     private static String findCalleeClassName() {
@@ -648,19 +721,7 @@ Executor, Closeable {
         }
 
         void callbackFn(ProtoPresenterBuilder.OnPrepared onReady) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("this.toBrwsrSrvr = function(name, a1, a2, a3, a4) {\n"
-                + "var url = '").append(prefix).append("command.js?id=").append(id).append("&name=' + name;\n"
-                + "var body = 'p0=' + encodeURIComponent(a1);\n"
-                + "body += '&p1=' + encodeURIComponent(a2);\n"
-                + "body += '&p2=' + encodeURIComponent(a3);\n"
-                + "body += '&p3=' + encodeURIComponent(a4);\n"
-                + "var request = new XMLHttpRequest();\n"
-                + "request.open('PUT', url, false);\n"
-                + "request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8');\n"
-                + "request.send(body);\n"
-                + "return request.responseText;\n"
-                + "};\n");
+            String sb = this.browser.createCallbackFn(prefix, id);
             add(sb);
             onReady.callbackIsPrepared("toBrwsrSrvr");
         }

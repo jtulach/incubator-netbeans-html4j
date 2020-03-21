@@ -63,7 +63,8 @@ public final class ServerFactories {
         Fn.Presenter[] browserPresenter = { null };
         Fn[] updateName = { null };
         CountDownLatch cdl = new CountDownLatch(1);
-        final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser(browserName, new Browser.Config(), serverProvider)).
+        final Browser.Config cfg = new Browser.Config().debug(true);
+        final BrowserBuilder bb = BrowserBuilder.newBrowser(new Browser(browserName, cfg, serverProvider)).
             loadPage("empty.html").
             loadFinished(() -> {
                 browserPresenter[0] = Fn.activePresenter();

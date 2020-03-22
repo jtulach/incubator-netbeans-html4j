@@ -65,7 +65,7 @@ public class ServerMimeTypeTest {
         assertMimeType(cssType, "text/css");
 
         String jsType = new URL(connect, "test.js").openConnection().getContentType();
-        assertMimeType(jsType, "application/javascript");
+        assertMimeType(jsType, "*/javascript");
 
         URLConnection conn = new URL(connect, "non-existing.file").openConnection();
         assertTrue(conn instanceof HttpURLConnection, "it is HTTP connection: " + conn);
@@ -90,6 +90,10 @@ public class ServerMimeTypeTest {
         if (semicolon >= 0) {
             type = type.substring(0, semicolon);
         }
-        assertEquals(type, exp);
+        if (exp.startsWith("*")) {
+            assertTrue(type.endsWith(exp.substring(1)), "Expecting " + exp + " but was: " + type);
+        } else {
+            assertEquals(type, exp);
+        }
     }
 }

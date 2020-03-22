@@ -20,7 +20,9 @@ package org.netbeans.html.presenters.browser;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -37,9 +39,13 @@ public final class ServerFactories {
     public static Object[][] serverFactories() {
         Supplier<HttpServer<?,?,?,?>> simple = SimpleServer::new;
         Supplier<HttpServer<?,?,?,?>> grizzly = GrizzlyServer::new;
-        return new Object[][]{
-            {"Simple", simple}, {"Grizzly", grizzly}, {"None", null}
-        };
+        List<Object[]> arr = new ArrayList<>();
+        arr.add(new Object[] {"Simple", simple});
+        if (!System.getProperty("os.name").contains("Window")) {
+            arr.add(new Object[] { "Grizzly", grizzly});
+        }
+        arr.add(new Object[] {"None", null});
+        return arr.toArray(new Object[0][]);
     }
 
     static Fn.Presenter[] collect(

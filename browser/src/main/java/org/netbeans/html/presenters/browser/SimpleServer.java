@@ -70,7 +70,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
     private Thread processor;
 
     private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET|POST|PUT|DELETE) */([^ \\?]*)(\\?[^ ]*)?");
-    private static final Pattern PATTERN_LANGS = Pattern.compile(".*^Accept-Language:(.*)$", Pattern.MULTILINE);
     private static final Pattern PATTERN_HOST = Pattern.compile(".*^Host: *(.*):([0-9]+)$", Pattern.MULTILINE);
     private static final Pattern PATTERN_LENGTH = Pattern.compile(".*^Content-Length: ([0-9]+)$", Pattern.MULTILINE);
     static final Logger LOG = Logger.getLogger(SimpleServer.class.getName());
@@ -375,17 +374,12 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         String method, ByteBuffer bodyToFill
     ) {
         LOG.log(Level.FINE, "Searching for page {0}", url);
-        Matcher m = PATTERN_LANGS.matcher(header);
-        String langs = m.find() ? m.group(1) : null;
-        if (langs != null) {
-            LOG.log(Level.FINE, "Accepted languages {0}", langs);
-        }
-        Matcher m2 = PATTERN_HOST.matcher(header);
+        Matcher hostMatch = PATTERN_HOST.matcher(header);
         String host = null;
         int port = -1;
-        if (m2.find()) {
-            host = m2.group(1);
-            port = Integer.parseInt(m2.group(2));
+        if (hostMatch.find()) {
+            host = hostMatch.group(1);
+            port = Integer.parseInt(hostMatch.group(2));
         }
         if (host != null) {
             LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
@@ -394,7 +388,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         for (Map.Entry<String, Handler> entry : maps.entrySet()) {
             if (url.startsWith(entry.getKey())) {
                 final Handler h = entry.getValue();
-                return new ReqRes(h, url, args, host, port, header, method, bodyToFill, args, langs);
+                return new ReqRes(h, url, args, host, port, header, method, bodyToFill);
             }
         }
         throw new IllegalStateException("No mapping for " + url + " among " + maps);
@@ -545,8 +539,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         final String header;
         final String method;
         final ByteBuffer body;
-        private final Map<String, ? extends Object> context;
-        private final String langs;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
         private SelectionKey delegate;
         private final ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -559,9 +551,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         public ReqRes(
             Handler h,
             String url, Map<String, ? extends Object> args, String host,
-            int port, String header, String method, ByteBuffer body,
-            Map<String, ? extends Object> a,
-            String langs
+            int port, String header, String method, ByteBuffer body
         ) {
             this.h = h;
             this.url = url;
@@ -569,9 +559,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             this.hostPort = port;
             this.header = header;
             this.args = args;
-            this.context = a;
             this.method = method;
-            this.langs = langs;
             this.body = body;
         }
 

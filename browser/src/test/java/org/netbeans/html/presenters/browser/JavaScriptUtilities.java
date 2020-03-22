@@ -33,4 +33,11 @@ final class JavaScriptUtilities {
         + "return h;\n"
     )
     static native String findBaseURL();
+
+    @JavaScriptBody(args = {"value"}, body = "document.getElementById('loaded').innerHTML = value;")
+    static native void setLoaded(String value);
+
+    @JavaScriptBody(args = {"ms"}, body = "window.setTimeout(function() { window.close(); }, ms);")
+    static native void closeSoon(int ms);
+
 }

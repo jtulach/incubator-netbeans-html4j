@@ -33,7 +33,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import net.java.html.boot.BrowserBuilder;
-import net.java.html.js.JavaScriptBody;
+import static org.netbeans.html.presenters.browser.JavaScriptUtilities.closeSoon;
+import static org.netbeans.html.presenters.browser.JavaScriptUtilities.setLoaded;
 import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -108,12 +109,6 @@ public class ServerTest {
             Thread.sleep(100);
         }
     }
-
-    @JavaScriptBody(args = { "value" }, body = "document.getElementById('loaded').innerHTML = value;")
-    static native void setLoaded(String value);
-
-    @JavaScriptBody(args = { "ms" }, body = "window.setTimeout(function() { window.close(); }, ms);")
-    static native void closeSoon(int ms);
 
     private static void show(URI page) throws IOException {
         ExecutorService background = Executors.newSingleThreadExecutor();

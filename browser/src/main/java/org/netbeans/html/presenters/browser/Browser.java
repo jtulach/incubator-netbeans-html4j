@@ -102,9 +102,8 @@ Executor, Closeable {
      * In addition to the above properties, it is possible to also enable
      * debugging by setting <code>com.dukescript.presenters.browserDebug=true</code>.
      *
-     * @throws Exception
      */
-    public Browser() throws Exception {
+    public Browser() {
         this(new Config());
     }
 

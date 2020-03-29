@@ -128,10 +128,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         return new String(r.body.array(), StandardCharsets.UTF_8);
     }
 
-    static int endOfHeader(String header) {
-        return header.indexOf("\r\n\r\n");
-    }
-
     @Override
     String getHeader(ReqRes r, String key) {
         for (String l : r.header.split("\r\n")) {
@@ -167,14 +163,14 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     void suspend(ReqRes r) {
-        r.delegate.interestOps(0);
         r.suspended = true;
+        r.updateOperations();
     }
 
     @Override
     void resume(ReqRes r) {
         r.suspended = false;
-        r.delegate.interestOps(SelectionKey.OP_WRITE);
+        r.updateOperations();
         connectionWakeup();
     }
 
@@ -240,7 +236,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
                 Set<SelectionKey> readyKeys = localConnection.selectedKeys();
                 Iterator<SelectionKey> it = readyKeys.iterator();
-                PROCESS:
                 while (it.hasNext()) {
                     SelectionKey key = it.next();
                     LOG.log(Level.FINEST, "Handling key {0}", key.attachment());
@@ -251,15 +246,16 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                             SocketChannel channel = localServer.accept();
                             channel.configureBlocking(false);
                             SelectionKey another = channel.register(
-                                    localConnection, SelectionKey.OP_READ
+                                localConnection, SelectionKey.OP_READ
                             );
+                            another.attach(new ReadHeader());
                         } catch (ClosedByInterruptException ex) {
                             LOG.log(Level.WARNING, "Interrupted while accepting", ex);
                             server.close();
                             server = null;
                             LOG.log(Level.INFO, "Accept server reset");
                         }
-                        continue PROCESS;
+                        continue;
                     }
 
                     if (key.isReadable()) {
@@ -267,67 +263,21 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
                         channel.read(bb);
-                        if (key.attachment() instanceof ReqRes) {
-                            ((Buffer)bb).flip();
+                        ((Buffer) bb).flip();
+
+                        if (key.attachment() instanceof ReadHeader) {
+                            ReadHeader readHeader = (ReadHeader) key.attachment();
+                            ReqRes nextKey = readHeader.process(key, bb);
+                            if (nextKey != null) {
+                                key.attach(nextKey);
+                                nextKey.updateOperations();
+                            }
+                        } else if (key.attachment() instanceof ReqRes) {
                             ReqRes req = (ReqRes) key.attachment();
                             req.bodyToFill().put(bb);
-                            if (req.bodyToFill().remaining() == 0) {
-                                key.interestOps(SelectionKey.OP_WRITE);
-                            }
-                            continue PROCESS;
+                            req.updateOperations();
                         }
-
-
-                        ((Buffer)bb).flip();
-                        String text = new String(bb.array(), 0, bb.limit());
-                        int fullHeader = endOfHeader(text);
-                        if (channel.isOpen() && fullHeader == -1) {
-                            continue PROCESS;
-                        }
-                        String header = text.substring(0, fullHeader);
-
-                        Matcher m = PATTERN_GET.matcher(header);
-                        String url = m.find() ? m.group(2) : null;
-                        String args = url != null && m.groupCount() == 3 ? m.group(3) : null;
-                        String method = m.group(1);
-
-                        Map<String, String> context;
-                        if (args != null) {
-                            Map<String, String> c = new HashMap<>();
-                            parseArgs(c, args);
-                            context = Collections.unmodifiableMap(c);
-                        } else {
-                            context = Collections.emptyMap();
-                        }
-
-                        Matcher length = PATTERN_LENGTH.matcher(header);
-                        ByteBuffer body = null;
-                        if (length.find()) {
-                            int contentLength = Integer.parseInt(length.group(1));
-                            body = ByteBuffer.allocate(contentLength);
-                            ((Buffer)bb).position(fullHeader + 4);
-                            body.put(bb);
-                        }
-
-                        Handler h = findHandler(url);
-                        Matcher hostMatch = PATTERN_HOST.matcher(header);
-                        String host = null;
-                        int port = -1;
-                        if (hostMatch.find()) {
-                            host = hostMatch.group(1);
-                            port = Integer.parseInt(hostMatch.group(2));
-                        }
-                        if (host != null) {
-                            LOG.log(Level.FINER, "Host {0}:{1}", new Object[] { host, port });
-                        }
-                        ReqRes req = new ReqRes(h, key, url, context, host, port, header, method, body);
-                        key.attach(req);
-                        if (body != null && body.remaining() > 0) {
-                            key.interestOps(SelectionKey.OP_READ);
-                            continue PROCESS;
-                        }
-                        key.interestOps(SelectionKey.OP_WRITE);
-                        continue PROCESS;
+                        continue;
                     }
 
                     if (key.isWritable()) {
@@ -335,7 +285,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                         toClose = channel;
                         ReqRes reply = (ReqRes) key.attachment();
                         if (reply == null) {
-                            continue PROCESS;
+                            continue;
                         }
                         reply.handle(channel);
                     }
@@ -515,6 +465,56 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         }
     }
 
+    final class ReadHeader {
+        private final StringBuilder buffer = new StringBuilder();
+
+        final ReqRes process(SelectionKey key, ByteBuffer chunk) {
+            String text = new String(chunk.array(), 0, chunk.limit(), StandardCharsets.US_ASCII);
+            buffer.append(text);
+            int fullHeader = buffer.indexOf("\r\n\r\n");
+            if (fullHeader == -1) {
+                return null;
+            }
+            String header = text.substring(0, fullHeader);
+
+            Matcher m = PATTERN_GET.matcher(header);
+            String url = m.find() ? m.group(2) : null;
+            String args = url != null && m.groupCount() == 3 ? m.group(3) : null;
+            String method = m.group(1);
+
+            Map<String, String> context;
+            if (args != null) {
+                Map<String, String> c = new HashMap<>();
+                parseArgs(c, args);
+                context = Collections.unmodifiableMap(c);
+            } else {
+                context = Collections.emptyMap();
+            }
+
+            Matcher length = PATTERN_LENGTH.matcher(header);
+            ByteBuffer body = null;
+            if (length.find()) {
+                int contentLength = Integer.parseInt(length.group(1));
+                body = ByteBuffer.allocate(contentLength);
+                ((Buffer) chunk).position(fullHeader + 4);
+                body.put(chunk);
+            }
+
+            Handler h = findHandler(url);
+            Matcher hostMatch = PATTERN_HOST.matcher(header);
+            String host = null;
+            int port = -1;
+            if (hostMatch.find()) {
+                host = hostMatch.group(1);
+                port = Integer.parseInt(hostMatch.group(2));
+            }
+            if (host != null) {
+                LOG.log(Level.FINER, "Host {0}:{1}", new Object[]{host, port});
+            }
+            return new ReqRes(h, key, url, context, host, port, header, method, body);
+        }
+    }
+
     final class ReqRes {
         private final SelectionKey delegate;
         private final Handler h;
@@ -550,9 +550,19 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             this.body = body;
         }
 
+        void updateOperations() {
+            if (body != null && body.remaining() > 0) {
+                delegate.interestOps(SelectionKey.OP_READ);
+            } else if (suspended) {
+                delegate.interestOps(0);
+            } else {
+                delegate.interestOps(SelectionKey.OP_WRITE);
+            }
+        }
+
         public void handle(SocketChannel channel) throws IOException {
             if (bb != null) {
-                Map<String,String> headerAttrs = Collections.emptyMap();
+                Map<String,String> headerAttrs;
                 String mime;
                 h.service(SimpleServer.this, this, this);
                 headerAttrs = headers;
@@ -567,7 +577,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                 ((Buffer)bb).clear();
                 bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
                 bb.put("Connection: close\r\n".getBytes());
-                bb.put("Server: Browser PReqenter\r\n".getBytes());
+                bb.put("Server: Browser presenter\r\n".getBytes());
                 bb.put(date(null));
                 bb.put("\r\n".getBytes());
                 bb.put(("Content-Type: " + mime + "\r\n").getBytes());

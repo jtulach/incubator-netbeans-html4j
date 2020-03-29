@@ -274,7 +274,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                             }
                         } else if (key.attachment() instanceof ReqRes) {
                             ReqRes req = (ReqRes) key.attachment();
-                            req.bodyToFill().put(bb);
+                            req.process(key, bb);
                             req.updateOperations();
                         }
                         continue;
@@ -625,8 +625,8 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             return os.toByteArray();
         }
 
-        public ByteBuffer bodyToFill() {
-            return body;
+        void process(SelectionKey key, ByteBuffer chunk) {
+            body.put(chunk);
         }
 
         @Override

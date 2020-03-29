@@ -217,8 +217,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
     @Override
     public void run() {
         ByteBuffer bb = ByteBuffer.allocate(2048);
-        int sleep = 10;
-
         while (Thread.currentThread() == processor) {
             ServerSocketChannel localServer;
             Selector localConnection;
@@ -230,23 +228,15 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                     localConnection = this.connection;
                 }
 
-                LOG.log(Level.FINE, "Before select {0}", localConnection.isOpen());
-                LOG.log(Level.FINE, "Server {0}", localServer.isOpen());
+                LOG.log(Level.FINEST, "Before select status: open server{0}, open connection {0}",
+                    new Object[] { localServer.isOpen(), localConnection.isOpen() }
+                );
 
                 int amount = localConnection.select();
 
-                LOG.log(Level.FINE, "After select: {0}", amount);
+                LOG.log(Level.FINEST, "After select: {0}", amount);
                 if (amount == 0) {
-                    try {
-                        Thread.sleep(sleep);
-                    } catch (InterruptedException ex) {
-                    }
-                    sleep *= 2;
-                    if (sleep > 1000) {
-                        sleep = 1000;
-                    }
-                } else {
-                    sleep = 10;
+                    LOG.log(Level.FINE, "No amount after select: {0}", amount);
                 }
 
                 Set<SelectionKey> readyKeys = localConnection.selectedKeys();
@@ -382,7 +372,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             port = Integer.parseInt(hostMatch.group(2));
         }
         if (host != null) {
-            LOG.log(Level.FINE, "Host {0}:{1}", new Object[] { host, port });
+            LOG.log(Level.FINER, "Host {0}:{1}", new Object[] { host, port });
         }
 
         for (Map.Entry<String, Handler> entry : maps.entrySet()) {
@@ -578,7 +568,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                 }
                 ((Buffer)bb).clear();
 
-                LOG.log(Level.FINE, "Found page request {0}", url); // NOI18N
+                LOG.log(Level.FINE, "Serving page request {0}", url); // NOI18N
                 ((Buffer)bb).clear();
                 bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
                 bb.put("Connection: close\r\n".getBytes());

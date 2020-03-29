@@ -116,7 +116,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     String getParameter(ReqRes r, String id) {
-        return (String) r.args.get(id);
+        return r.args.get(id);
     }
 
     @Override
@@ -360,7 +360,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
     }
 
     private ReqRes findRequest(
-        String url, Map<String, ? extends Object> args, String header,
+        String url, Map<String,String> args, String header,
         String method, ByteBuffer bodyToFill
     ) {
         LOG.log(Level.FINE, "Searching for page {0}", url);
@@ -525,7 +525,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         final String url;
         final String hostName;
         final int hostPort;
-        final Map<String, ? extends Object> args;
+        final Map<String,String> args;
         final String header;
         final String method;
         final ByteBuffer body;
@@ -540,7 +540,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
         public ReqRes(
             Handler h,
-            String url, Map<String, ? extends Object> args, String host,
+            String url, Map<String,String> args, String host,
             int port, String header, String method, ByteBuffer body
         ) {
             this.h = h;

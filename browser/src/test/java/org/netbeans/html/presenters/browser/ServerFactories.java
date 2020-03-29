@@ -37,14 +37,12 @@ public final class ServerFactories {
 
     @DataProvider(name = "serverFactories")
     public static Object[][] serverFactories() {
-        Supplier<HttpServer<?,?,?,?>> simple = SimpleServer::new;
         Supplier<HttpServer<?,?,?,?>> grizzly = GrizzlyServer::new;
         List<Object[]> arr = new ArrayList<>();
-        arr.add(new Object[] {"Simple", simple});
         if (!System.getProperty("os.name").contains("Window")) {
             arr.add(new Object[] { "Grizzly", grizzly});
         }
-        arr.add(new Object[] {"None", null});
+        arr.add(new Object[] {"Default", null});
         return arr.toArray(new Object[0][]);
     }
 

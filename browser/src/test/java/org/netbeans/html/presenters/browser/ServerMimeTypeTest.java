@@ -67,6 +67,9 @@ public class ServerMimeTypeTest {
         String jsType = new URL(connect, "test.js").openConnection().getContentType();
         assertMimeType(jsType, "*/javascript");
 
+        String jsMinType = new URL(connect, "test.min.js").openConnection().getContentType();
+        assertMimeType(jsMinType, "*/javascript");
+
         URLConnection conn = new URL(connect, "non-existing.file").openConnection();
         assertTrue(conn instanceof HttpURLConnection, "it is HTTP connection: " + conn);
 

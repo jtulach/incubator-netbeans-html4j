@@ -418,20 +418,29 @@ Executor, Closeable {
                     server.setStatus(rspns, 404);
                     return;
                 }
+                String found = null;
                 if (relative.getProtocol().equals("file")) {
                     try {
                         File file = new File(relative.toURI());
-                        String found = Files.probeContentType(file.toPath());
-                        if (found != null) {
-                            server.setContentType(rspns, found);
-                        }
+                        found = Files.probeContentType(file.toPath());
                     } catch (URISyntaxException | IOException ignore) {
                     }
                 } else {
-                    String type = conn.getContentType();
-                    if (type != null) {
-                        server.setContentType(rspns, type);
+                    found = conn.getContentType();
+                }
+                if (found == null || "content/unknown".equals(found)) {
+                    if (path.endsWith(".html")) {
+                        found = "text/html";
                     }
+                    if (path.endsWith(".js")) {
+                        found = "text/javascript";
+                    }
+                    if (path.endsWith(".css")) {
+                        found = "text/css";
+                    }
+                }
+                if (found != null) {
+                    server.setContentType(rspns, found);
                 }
                 OutputStream out = server.getOutputStream(rspns);
                 for (;;) {

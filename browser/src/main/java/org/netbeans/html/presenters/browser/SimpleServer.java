@@ -29,7 +29,6 @@ import java.net.InetSocketAddress;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -168,14 +167,14 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     void suspend(ReqRes r) {
-        r.interestOps(0);
+        r.delegate.interestOps(0);
         r.suspended = true;
     }
 
     @Override
     void resume(ReqRes r) {
         r.suspended = false;
-        r.interestOps(SelectionKey.OP_WRITE);
+        r.delegate.interestOps(SelectionKey.OP_WRITE);
         connectionWakeup();
     }
 
@@ -310,7 +309,18 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                             body.put(bb);
                         }
 
-                        ReqRes req = findRequest(url, context, header, method, body);
+                        Handler h = findHandler(url);
+                        Matcher hostMatch = PATTERN_HOST.matcher(header);
+                        String host = null;
+                        int port = -1;
+                        if (hostMatch.find()) {
+                            host = hostMatch.group(1);
+                            port = Integer.parseInt(hostMatch.group(2));
+                        }
+                        if (host != null) {
+                            LOG.log(Level.FINER, "Host {0}:{1}", new Object[] { host, port });
+                        }
+                        ReqRes req = new ReqRes(h, key, url, context, host, port, header, method, body);
                         key.attach(req);
                         if (body != null && body.remaining() > 0) {
                             key.interestOps(SelectionKey.OP_READ);
@@ -327,7 +337,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                         if (reply == null) {
                             continue PROCESS;
                         }
-                        reply.handle(key, channel);
+                        reply.handle(channel);
                     }
                }
             } catch (ThreadDeath td) {
@@ -359,26 +369,11 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         LOG.fine("All notified, exiting server");
     }
 
-    private ReqRes findRequest(
-        String url, Map<String,String> args, String header,
-        String method, ByteBuffer bodyToFill
-    ) {
-        LOG.log(Level.FINE, "Searching for page {0}", url);
-        Matcher hostMatch = PATTERN_HOST.matcher(header);
-        String host = null;
-        int port = -1;
-        if (hostMatch.find()) {
-            host = hostMatch.group(1);
-            port = Integer.parseInt(hostMatch.group(2));
-        }
-        if (host != null) {
-            LOG.log(Level.FINER, "Host {0}:{1}", new Object[] { host, port });
-        }
-
+    private Handler findHandler(String url) {
+        LOG.log(Level.FINE, "Searching for handler for page {0}", url);
         for (Map.Entry<String, Handler> entry : maps.entrySet()) {
             if (url.startsWith(entry.getKey())) {
-                final Handler h = entry.getValue();
-                return new ReqRes(h, url, args, host, port, header, method, bodyToFill);
+                return entry.getValue();
             }
         }
         throw new IllegalStateException("No mapping for " + url + " among " + maps);
@@ -520,7 +515,8 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         }
     }
 
-    final class ReqRes extends SelectionKey {
+    final class ReqRes {
+        private final SelectionKey delegate;
         private final Handler h;
         final String url;
         final String hostName;
@@ -530,20 +526,21 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         final String method;
         final ByteBuffer body;
         private ByteBuffer bb = ByteBuffer.allocate(8192);
-        private SelectionKey delegate;
         private final ByteArrayOutputStream os = new ByteArrayOutputStream();
         final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
         final Map<String,String> headers = new LinkedHashMap<>();
         String contentType;
         int status = 200;
         boolean suspended;
+        private ByteBuffer toOut;
 
         public ReqRes(
-            Handler h,
+            Handler h, SelectionKey delegate,
             String url, Map<String,String> args, String host,
             int port, String header, String method, ByteBuffer body
         ) {
             this.h = h;
+            this.delegate = delegate;
             this.url = url;
             this.hostName = host;
             this.hostPort = port;
@@ -553,9 +550,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             this.body = body;
         }
 
-        public void handle(SelectionKey key, SocketChannel channel) throws IOException {
-            delegate = key;
-
+        public void handle(SocketChannel channel) throws IOException {
             if (bb != null) {
                 Map<String,String> headerAttrs = Collections.emptyMap();
                 String mime;
@@ -594,25 +589,23 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             }
 
             try {
-                if (attachment() == null) {
+                if (toOut == null) {
                     if (suspended) {
                         channel.write(ByteBuffer.allocate(0));
                         return;
                     }
-                    ByteBuffer out = ByteBuffer.wrap(toByteArray());
-                    attach(out);
+                    toOut = ByteBuffer.wrap(toByteArray());
                 }
-                ByteBuffer bb = (ByteBuffer) attachment();
-                if (bb.remaining() > 0) {
-                    channel.write(bb);
+                if (toOut.remaining() > 0) {
+                    channel.write(toOut);
                 } else {
                     channel.close();
                 }
             } finally {
                 if (!channel.isOpen()) {
                     LOG.log(Level.FINE, "channel not open, closing");
-                    key.attach(null);
-                    key.cancel();
+                    delegate.attach(null);
+                    delegate.cancel();
                 }
             }
         }
@@ -629,41 +622,6 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         @Override
         public String toString() {
             return "Request[" + method + ":" + url + "]";
-        }
-
-        @Override
-        public SelectableChannel channel() {
-            return delegate.channel();
-        }
-
-        @Override
-        public Selector selector() {
-            return delegate.selector();
-        }
-
-        @Override
-        public boolean isValid() {
-            return delegate.isValid();
-        }
-
-        @Override
-        public void cancel() {
-            delegate.cancel();
-        }
-
-        @Override
-        public int interestOps() {
-            return delegate.interestOps();
-        }
-
-        @Override
-        public SelectionKey interestOps(int arg0) {
-            return delegate.interestOps(arg0);
-        }
-
-        @Override
-        public int readyOps() {
-            return delegate.readyOps();
         }
     }
 }

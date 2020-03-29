@@ -255,10 +255,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                             server = null;
                             LOG.log(Level.INFO, "Accept server reset");
                         }
-                        continue;
-                    }
-
-                    if (key.isReadable()) {
+                    } else if (key.isReadable()) {
                         ((Buffer)bb).clear();
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
@@ -274,20 +271,23 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
                             }
                         } else if (key.attachment() instanceof ReqRes) {
                             ReqRes req = (ReqRes) key.attachment();
-                            req.process(key, bb);
+                            req.readBody(key, bb);
                             req.updateOperations();
                         }
-                        continue;
-                    }
-
-                    if (key.isWritable()) {
+                    } else if (key.isWritable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
                         toClose = channel;
-                        ReqRes reply = (ReqRes) key.attachment();
-                        if (reply == null) {
-                            continue;
+                        if (key.attachment() instanceof ReqRes) {
+                            ReqRes request = (ReqRes) key.attachment();
+                            WriteReply write = request.handle(channel);
+                            if (write != null) {
+                                key.attach(write);
+                                write.updateOperations();
+                            }
+                        } else if (key.attachment() instanceof WriteReply) {
+                            WriteReply write = (WriteReply) key.attachment();
+                            write.output(channel);
                         }
-                        reply.handle(channel);
                     }
                }
             } catch (ThreadDeath td) {
@@ -525,14 +525,13 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         final String header;
         final String method;
         final ByteBuffer body;
-        private ByteBuffer bb = ByteBuffer.allocate(8192);
         private final ByteArrayOutputStream os = new ByteArrayOutputStream();
         final Writer writer = new OutputStreamWriter(os, StandardCharsets.UTF_8);
         final Map<String,String> headers = new LinkedHashMap<>();
         String contentType;
         int status = 200;
+        boolean computed;
         boolean suspended;
-        private ByteBuffer toOut;
 
         public ReqRes(
             Handler h, SelectionKey delegate,
@@ -560,64 +559,39 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             }
         }
 
-        public void handle(SocketChannel channel) throws IOException {
-            if (bb != null) {
-                Map<String,String> headerAttrs;
-                String mime;
+        public WriteReply handle(SocketChannel channel) throws IOException {
+            if (!computed) {
+                computed = true;
                 h.service(SimpleServer.this, this, this);
-                headerAttrs = headers;
-
-                mime = contentType;
-                if (mime == null) {
-                    mime = "content/unknown"; // NOI18N
-                }
-                ((Buffer)bb).clear();
-
-                LOG.log(Level.FINE, "Serving page request {0}", url); // NOI18N
-                ((Buffer)bb).clear();
-                bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
-                bb.put("Connection: close\r\n".getBytes());
-                bb.put("Server: Browser presenter\r\n".getBytes());
-                bb.put(date(null));
-                bb.put("\r\n".getBytes());
-                bb.put(("Content-Type: " + mime + "\r\n").getBytes());
-                for (Map.Entry<String,String> entry : headerAttrs.entrySet()) {
-                    bb.put((entry.getKey() + ":" + entry.getValue() + "\r\n").getBytes());
-                }
-                bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
-                bb.put("\r\n".getBytes());
-                ((Buffer)bb).flip();
-                channel.write(bb);
-                LOG.log(Level.FINER, "Written header, type {0}", mime);
-                bb = null;
-
-                if ("HEAD".equals(method)) {
-                    LOG.fine("Writer flushed and closed, closing channel");
-                    channel.close();
-                    return;
-                }
+            }
+            if (suspended) {
+                channel.write(ByteBuffer.allocate(0));
+                return null;
             }
 
-            try {
-                if (toOut == null) {
-                    if (suspended) {
-                        channel.write(ByteBuffer.allocate(0));
-                        return;
-                    }
-                    toOut = ByteBuffer.wrap(toByteArray());
-                }
-                if (toOut.remaining() > 0) {
-                    channel.write(toOut);
-                } else {
-                    channel.close();
-                }
-            } finally {
-                if (!channel.isOpen()) {
-                    LOG.log(Level.FINE, "channel not open, closing");
-                    delegate.attach(null);
-                    delegate.cancel();
-                }
+            if (contentType == null) {
+                contentType = "content/unknown"; // NOI18N
             }
+
+            ByteBuffer bb = ByteBuffer.allocate(8192);
+            ((Buffer) bb).clear();
+
+            LOG.log(Level.FINE, "Serving page request {0}", url); // NOI18N
+            ((Buffer) bb).clear();
+            bb.put(("HTTP/1.1 " + status + "\r\n").getBytes());
+            bb.put("Connection: close\r\n".getBytes());
+            bb.put("Server: Browser presenter\r\n".getBytes());
+            bb.put(date(null));
+            bb.put("\r\n".getBytes());
+            bb.put(("Content-Type: " + contentType + "\r\n").getBytes());
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                bb.put((entry.getKey() + ":" + entry.getValue() + "\r\n").getBytes());
+            }
+            bb.put("Pragma: no-cache\r\nCache-control: no-cache\r\n".getBytes());
+            bb.put("\r\n".getBytes());
+            ((Buffer) bb).flip();
+
+            return new WriteReply(delegate, url, bb, ByteBuffer.wrap(toByteArray()));
         }
 
         byte[] toByteArray() throws IOException {
@@ -625,13 +599,52 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             return os.toByteArray();
         }
 
-        void process(SelectionKey key, ByteBuffer chunk) {
+        void readBody(SelectionKey key, ByteBuffer chunk) {
             body.put(chunk);
         }
 
         @Override
         public String toString() {
             return "Request[" + method + ":" + url + "]";
+        }
+    }
+
+    final class WriteReply {
+        private final SelectionKey delegate;
+        private final String url;
+        private final ByteBuffer header;
+        private final ByteBuffer body;
+
+        WriteReply(SelectionKey delegate, String url, ByteBuffer header, ByteBuffer body) {
+            this.delegate = delegate;
+            this.url = url;
+            this.header = header;
+            this.body = body;
+        }
+
+        void updateOperations() {
+            delegate.interestOps(SelectionKey.OP_WRITE);
+        }
+
+        void output(SocketChannel channel) throws IOException {
+            try {
+                if (header.remaining() > 0) {
+                    channel.write(header);
+                    return;
+                }
+                if (body.remaining() > 0) {
+                    channel.write(body);
+                } else {
+                    channel.close();
+                }
+            } finally {
+                if (!channel.isOpen()) {
+                    LOG.log(Level.FINE, "channel for {0} not open, closing", url);
+                    delegate.attach(null);
+                    delegate.cancel();
+                }
+            }
+
         }
     }
 }

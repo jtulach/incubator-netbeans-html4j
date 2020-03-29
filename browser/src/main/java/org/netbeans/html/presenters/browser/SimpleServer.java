@@ -35,11 +35,13 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -55,7 +57,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.html.boot.spi.Fn;
 
-final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.ReqRes, Object, SimpleServer.Context> implements Runnable {
+final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.ReqRes, Object, SimpleServer.Context> {
     private final Map<String, Handler> maps = new TreeMap<>((s1, s2) -> {
         if (s1.length() != s2.length()) {
             return s2.length() - s1.length();
@@ -64,9 +66,13 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
     });
     private int max;
     private int min;
+    /** @GuardedBy("this") */
     private ServerSocketChannel server;
+    /** @GuardedBy("this") */
     private Selector connection;
+    /** @GuardedBy("this") */
     private Thread processor;
+    private final List<Runnable> pendingActions = new ArrayList<>();
 
     private static final Pattern PATTERN_GET = Pattern.compile("(HEAD|GET|POST|PUT|DELETE) */([^ \\?]*)(\\?[^ ]*)?");
     private static final Pattern PATTERN_HOST = Pattern.compile(".*^Host: *(.*):([0-9]+)$", Pattern.MULTILINE);
@@ -92,44 +98,60 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
     }
 
     @Override
-    void start() throws IOException {
+    synchronized void start() throws IOException {
         LOG.log(Level.INFO, "Listening for HTTP connections on port {0}", getServer().socket().getLocalPort());
-        processor = new Thread(this, "HTTP server");
+        processor = new Thread(this::mainLoop, "HTTP server");
         processor.start();
+    }
+
+    private final synchronized Thread getProcessorThread() {
+        return processor;
+    }
+
+
+    final void assertThread() {
+        assert Thread.currentThread() == getProcessorThread();
     }
 
     @Override
     String getRequestURI(ReqRes r) {
+        assertThread();
         return "/" + r.url;
     }
 
     @Override
     String getServerName(ReqRes r) {
+        assertThread();
         return r.hostName;
     }
 
     @Override
     int getServerPort(ReqRes r) {
+        assertThread();
         return r.hostPort;
     }
 
     @Override
     String getParameter(ReqRes r, String id) {
+        assertThread();
         return r.args.get(id);
     }
 
     @Override
     String getMethod(ReqRes r) {
+        assertThread();
         return r.method;
     }
 
     @Override
     String getBody(ReqRes r) {
+        assertThread();
         return new String(r.body.array(), StandardCharsets.UTF_8);
     }
 
     @Override
     String getHeader(ReqRes r, String key) {
+        assertThread();
         for (String l : r.header.split("\r\n")) {
             if (l.isEmpty()) {
                 break;
@@ -143,35 +165,43 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     Writer getWriter(ReqRes r) {
+        assertThread();
         return r.writer;
     }
 
     @Override
     void setContentType(ReqRes r, String contentType) {
+        assertThread();
         r.contentType = contentType;
     }
 
     @Override
     void setStatus(ReqRes r, int status) {
+        assertThread();
         r.status = status;
     }
 
     @Override
     OutputStream getOutputStream(ReqRes r) {
+        assertThread();
         return r.os;
     }
 
     @Override
     void suspend(ReqRes r) {
+        assertThread();
         r.suspended = true;
         r.updateOperations();
     }
 
     @Override
-    void resume(ReqRes r) {
-        r.suspended = false;
-        r.updateOperations();
-        connectionWakeup();
+    void resume(ReqRes r, Runnable whenReady) {
+        connectionWakeup(() -> {
+            assertThread();
+            r.suspended = false;
+            r.updateOperations();
+            whenReady.run();
+        });
     }
 
     @Override
@@ -183,6 +213,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
 
     @Override
     void addHeader(ReqRes r, String name, String value) {
+        assertThread();
         r.headers.put(name, value);
     }
 
@@ -202,30 +233,37 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         }
     }
 
-    void connectionWakeup() {
+    synchronized void connectionWakeup(Runnable runOnMainLoop) {
         Selector localConnection = this.connection;
+        this.pendingActions.add(runOnMainLoop);
         if (localConnection != null) {
             localConnection.wakeup();
         }
     }
 
-    @Override
-    public void run() {
+    private void mainLoop() {
         ByteBuffer bb = ByteBuffer.allocate(2048);
-        while (Thread.currentThread() == processor) {
+        while (Thread.currentThread() == getProcessorThread()) {
             ServerSocketChannel localServer;
             Selector localConnection;
+            Runnable[] pendings;
 
             SocketChannel toClose = null;
             try {
                 synchronized (this) {
                     localServer = this.getServer();
                     localConnection = this.connection;
+                    pendings = this.pendingActions.toArray(new Runnable[0]);
+                    this.pendingActions.clear();
                 }
 
-                LOG.log(Level.FINEST, "Before select status: open server{0}, open connection {0}",
-                    new Object[] { localServer.isOpen(), localConnection.isOpen() }
+                LOG.log(Level.FINEST, "Before select status: open server{0}, open connection {1}, pending {2}",
+                    new Object[] { localServer.isOpen(), localConnection.isOpen(), pendings.length }
                 );
+
+                for (Runnable r : pendings) {
+                    r.run();
+                }
 
                 int amount = localConnection.select();
 
@@ -304,17 +342,17 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
             }
         }
 
-        try {
-            LOG.fine("Closing connection");
-            this.connection.close();
-            LOG.fine("Closing server");
-            this.getServer().close();
-        } catch (IOException ex) {
-            LOG.log(Level.WARNING, null, ex);
-        }
-
         synchronized (this) {
-            notifyAll();
+            try {
+                LOG.fine("Closing connection");
+                this.connection.close();
+                LOG.fine("Closing server");
+                this.getServer().close();
+            } catch (IOException ex) {
+                LOG.log(Level.WARNING, null, ex);
+            } finally {
+                notifyAll();
+            }
         }
         LOG.fine("All notified, exiting server");
     }
@@ -385,10 +423,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         }
     }
 
-    /**
-     * @return the server
-     */
-    public ServerSocketChannel getServer() throws IOException {
+    public synchronized ServerSocketChannel getServer() throws IOException {
         if (server == null) {
             ServerSocketChannel s = ServerSocketChannel.open();
             s.configureBlocking(false);
@@ -412,7 +447,7 @@ final class SimpleServer extends HttpServer<SimpleServer.ReqRes, SimpleServer.Re
         return server;
     }
 
-    class Context implements ThreadFactory {
+    final class Context implements ThreadFactory {
         private final String id;
         Executor RUN;
         Thread RUNNER;

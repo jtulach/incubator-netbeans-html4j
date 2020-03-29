@@ -612,12 +612,14 @@ Executor, Closeable {
 
         final synchronized void add(Object obj) {
             if (suspended != null) {
-                try (Writer w = server.getWriter(suspended)) {
-                    w.write(obj.toString());
-                } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, null, ex);
-                }
-                server.resume(suspended);
+                Response rqst = suspended;
+                server.resume(rqst, () -> {
+                    try (Writer w = server.getWriter(rqst)) {
+                        w.write(obj.toString());
+                    } catch (IOException ex) {
+                        LOG.log(Level.SEVERE, null, ex);
+                    }
+                });
                 suspended = null;
                 return;
             }

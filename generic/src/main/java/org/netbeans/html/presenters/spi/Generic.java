@@ -108,12 +108,15 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             + "\n  Object.defineProperty(jobject.prototype, 'native', { value : true });"
             + "\n  Object.defineProperty(jobject.prototype, 'valueOf', { value : function() { return this.v ? this.v : '[jobject ' + this.id + ']'; } });"
             + "\n  Object.defineProperty(jobject.prototype, 'toString', { value : jobject.prototype.valueOf });"
-            + "\n  var toVM = global['@2'];"
+            + "\n  var toVMImpl = global['@2'];"
             + "\n  delete global['@2'];"
-            + "\n  if (typeof toVM !== 'function') {"
-            + "\n    throw 'toVM should be a function: ' + toVM;"
+            + "\n  if (typeof toVMImpl !== 'function') {"
+            + "\n    throw 'toVM should be a function: ' + toVMImpl;"
             + "\n  }"
-            + "\n  function toJava(method, id, r) {"
+            + "\n  function toVM(method, reqId, a2, a3, a4) {"
+            + "\n    return toVMImpl(method, reqId, a2, a3, a4);"
+            + "\n  }"
+            + "\n  function toJava(method, reqId, r) {"
             + "\n      var t = typeof r;"
             + "\n      if (t === 'function') t = 'object';"
             + "\n      if (t === 'undefined' || r === null) {"
@@ -127,7 +130,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             + "\n        t = 'array';"
             + "\n        var l = r.length + ':';"
             + "\n        for (var i = 0; i < r.length; i++) {"
-            + "\n            var toObj = toJava(null, id, r[i]);"
+            + "\n            var toObj = toJava(null, reqId, r[i]);"
             + "\n            l += toObj.length + ':' + toObj;"
             + "\n          }"
             + "\n          r = l;"
@@ -137,7 +140,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             + "\n          r = size;"
             + "\n        }"
             + "\n      }"
-            + "\n      if (method !== null) toVM(method, id, t, r, null);"
+            + "\n      if (method !== null) toVM(method, reqId, t, r);"
             + "\n      else return t + ':' + r;"
             + "\n  }"
             + "\n  var impl = {};"
@@ -150,19 +153,19 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             + "\n    return impl;"
             + "\n  };"
             + "\n  impl.toJava = toJava;"
-            + "\n  impl.rg = function(id, fn) {"
-            + "\n    fncns[id] = fn;"
+            + "\n  impl.rg = function(index, fn) {"
+            + "\n    fncns[index] = fn;"
             + "\n  };"
-            + "\n  impl.fn = function(index, n, id, self) {"
+            + "\n  impl.fn = function(index, n, reqId, self) {"
             + "\n    var args = Array.prototype.slice.call(arguments, 4);"
             + "\n    try {"
             + "\n      var fn = fncns[index];"
             + "\n      if (typeof fn !== 'function') throw 'Cannot find function at index: ' + index + ' in ' + fn + ' apply: ' + (fn ? fn.apply : undefined);"
             + "\n      var r = fn.apply(self, args);"
-            + "\n      if (n) toJava('r', id, r);"
+            + "\n      if (n) toJava('r', reqId, r, reqId);"
             + "\n    } catch (err) {"
             + "\n      if (typeof console !== 'undefined') console.warn('Error ' + err + ' at:\\n' + err.stack);"
-            + "\n      if (n) toVM('r', id, 'error', '' + err + ' at:\\n' + err.stack, null, null);"
+            + "\n      if (n) toVM('r', reqId, 'error', '' + err + ' at:\\n' + err.stack);"
             + "\n    }"
             + "\n  };"
             + "\n  impl.o = function(i) {"
@@ -182,7 +185,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             + "\n    return fncns[i];"
             + "\n  };"
             + "\n  impl.toVM = toVM;"
-            + "\n  impl.toVM('r', -1, 'OK', 'Initialized', null);"
+            + "\n  impl.toVM('r', -1, 'OK', 'Initialized');"
             + "\n})(this);",
         "initializationProtocol=--- Initialization protocol ---\n",
         "error=Cannot initialize DukeScript: @1",
@@ -236,7 +239,8 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         } else if ("c".equals(method)) {
             return javacall(a1, a2, a3, a4);
         } else if ("jr".equals(method)) {
-            return javaresult();
+            int reqId = Integer.parseInt(a1);
+            return javaresult(reqId);
         } else {
             throw new IllegalArgumentException(method);
         }
@@ -347,11 +351,16 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         "fnBody=]);\n" +
             "  var v = ds(@3).toVM('c', '@1', '@2', thiz ? thiz.id : null, encParams);\n" +
             "  while (v !== null && v.indexOf && v.indexOf('javascript:') === 0) {\n" +
-            "    var script = v.substring(11);\n" +
+            "    var idAndScript = v.substring(11);\n" +
+            "    var slash = idAndScript.indexOf('/');\n" +
+            "    var id = idAndScript.substring(0, slash);\n" +
+            "    var script = idAndScript.substring(slash + 1);\n" +
             "    try {\n" +
             "      var r = eval.call(null, script);\n" +
-            "    } catch (e) {  console.warn('error: ' + e + ' executing: ' + script + ' at:\\n' + e.stack); }\n" +
-            "    v = ds(@3).toVM('jr', null, null, null, null);" +
+            "    } catch (e) { \n" +
+            "      console.warn('error: ' + e + ' executing: ' + script + ' at:\\n' + e.stack); \n" +
+            "    }\n" +
+            "    v = ds(@3).toVM('jr', id);\n" +
             "  }\n" +
             "  return @4 ? eval('(' + v + ')') : v;\n" +
             "};\n",
@@ -528,15 +537,37 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             this.params = adaptParams(method, Arrays.asList(params));
             this.toExec = null;
         }
-        
-        
-        protected final String inJavaScript(boolean[] finished) {
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            toString(sb, "");
+            return sb.toString();
+        }
+
+        private void toString(StringBuilder sb, String sep) {
+            sb.append(sep).append("Item[id=").append(id).append(", ");
+            if (method != null) {
+                sb.append("method=").append(method.getName());
+            } else {
+                sb.append("javascript");
+            }
+            if (prev != null) {
+                sb.append(", prev=\n");
+                prev.toString(sb, "  " + sep);
+                sb.append("\n").append(sep);
+            }
+            sb.append("]");
+        }
+
+        protected final String inJavaScript(int[] finished) {
             if (this.method != null) {
                 return js(finished);
             } else {
                 return sj(finished);
             }
         }
+
         protected final void inJava() {
             if (this.method == null) {
                 return;
@@ -564,11 +595,11 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
         
 
-        protected String js(boolean[] finished) {
+        protected String js(int[] finished) {
             if (Boolean.TRUE.equals(done)) {
                 StringBuilder sb = new StringBuilder();
                 encodeObject(result, false, sb, null);
-                finished[0] = true;
+                finished[0] = -1;
                 return sb.toString();
             }
             return null;
@@ -587,21 +618,21 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             this.thiz = null;
         }
 
-        protected String sj(boolean[] finished) {
-            finished[0] = false;
+        protected String sj(int[] finished) {
             if (Boolean.TRUE.equals(done)) {
                 return null;
             }
             done = true;
-            return "javascript:" + toExec;
+            return "javascript:" + finished[0] + "/" + toExec;
         }
 
-        protected final void result(String typeof, String result) {
+        protected final void result(String newType, String newResult) {
             if (this.method != null) {
                 throw new UnsupportedOperationException();
             }
-            this.typeof = typeof;
-            this.result = result;
+            this.typeof = newType;
+            this.result = newResult;
+            this.done = true;
             log(Level.FINE, "result ({0}): {1} for {2}", typeof, result, toExec);
         }
     } // end of Item
@@ -622,26 +653,18 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             }
             final int id = Integer.parseInt(counterId);
             final Item top = topMostCall();
-            if (top.id == id) {
+            Item my = findCall(id);
+            if (top == my) {
                 top.result(typeof, res);
-                registerCall(top.prev);
-                return;
+                finishCall(top);
+            } else {
+                my.result(typeof, res);
             }
-            Item it = top;
-            while (it != null) {
-                Item process = it.prev;
-                if (process.id == id) {
-                    process.result(typeof, res);
-                    return;
-                }
-                it = process;
-            }
-            throw new IllegalStateException("Cannot find " + id + " for " + typeof + " res: " + res);
         }
     }
 
     final String javacall(
-            String vmNumber, String fnName, String thizId, String encParams
+        String vmNumber, String fnName, String thizId, String encParams
     ) throws Exception {
         synchronized (lock()) {
             Object vm = findObject(Integer.parseInt(vmNumber));
@@ -673,27 +696,26 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             if (first || synchronous) {
                 dispatch(newItem);
             }
-            return javaresult();
+            return javaresult(newItem.id);
         }
     }
 
-    final String javaresult() throws IllegalStateException, InterruptedException {
+    final String javaresult(int reqId) throws IllegalStateException, InterruptedException {
         synchronized (lock()) {
-            boolean[] finished = {false};
+            int[] finishedId = { reqId };
             for (;;) {
                 if (deferred != null) {
-                    deferred.insert(0, "javascript:");
+                    deferred.insert(0, "javascript:" + reqId + "/");
                     String ret = deferred.toString();
                     deferred = null;
                     return ret;
                 }
-                finished[0] = false;
                 final Item top = topMostCall();
-                String jsToExec = top.inJavaScript(finished);
-                log(Level.FINE, "jr: {0} jsToExec: {1} finished: {2}", new Object[]{topMostCall(), jsToExec, finished[0]});
+                String jsToExec = top.inJavaScript(finishedId);
+                log(Level.FINE, "jr: {0} jsToExec: {1} finished: {2}", new Object[]{top, jsToExec, finishedId[0]});
                 if (jsToExec != null) {
-                    if (finished[0]) {
-                        registerCall(top.prev);
+                    if (finishedId[0] == -1) {
+                        finishCall(top);
                     }
                     return jsToExec;
                 }
@@ -705,6 +727,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
     private StringBuilder deferred;
     private Collection<Object> arguments = new LinkedList<Object>();
 
+    @Override
     public final void loadScript(final Reader reader) throws Exception {
         StringBuilder sb = new StringBuilder();
         char[] arr = new char[4092];
@@ -994,11 +1017,29 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         return call;
     }
 
+    private Item findCall(int reqId) {
+        for (Item it = call;; it = it.prev) {
+            if (it == null) {
+                throw new NullPointerException();
+            }
+            if (it.id == reqId) {
+                return it;
+            }
+        }
+    }
+
     private Item registerCall(Item call) {
         assert Thread.holdsLock(lock());
         this.call = call;
         lock().notifyAll();
         return call;
+    }
+
+    private void finishCall(Item call) {
+        assert Thread.holdsLock(lock());
+        assert this.call == call;
+        this.call = call.prev;
+        lock().notifyAll();
     }
 
     private int nextCallId() {

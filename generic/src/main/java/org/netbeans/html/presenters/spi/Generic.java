@@ -523,6 +523,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         final int id;
         final Item prev;
         Boolean done;
+        boolean resultObtained;
 
         final Method method;
         final Object thiz;
@@ -642,9 +643,9 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             log(Level.FINE, "result ({0}): {1} for {2}", typeof, result, toExec);
         }
 
-        protected void destroy() {
+        protected final void noLongerNeeded() {
             assert Thread.holdsLock(lock());
-            this.done = true;
+            this.resultObtained = true;
         }
     } // end of Item
     
@@ -704,10 +705,14 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             boolean first = top == null;
             log(Level.FINE, "jc: {0}@{1}args: {2} is first: {3}, now: {4}", new Object[]{method.getName(), vm, params, first, topMostCall()});
             Item newItem = registerCall(new Item(nextCallId(), top, method, vm, converted));
-            if (first || synchronous) {
-                dispatch(newItem);
+            try {
+                if (first || synchronous) {
+                    dispatch(newItem);
+                }
+                return javaresult(newItem.id);
+            } finally {
+                newItem.noLongerNeeded();
             }
-            return javaresult(newItem.id);
         }
     }
 
@@ -800,26 +805,29 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                 load = true;
                 first = true;
             }
-            if (load) {
-                loadJS(fn);
+            try {
+                if (load) {
+                    loadJS(fn);
+                }
+                for (;;) {
+                    if (myCall.typeof != null) {
+                        break;
+                    }
+                    try {
+                        lock().wait();
+                    } catch (InterruptedException ex) {
+                        log(Level.SEVERE, null, ex);
+                    }
+                    Item c = topMostCall();
+                    if (c != null) {
+                        c.inJava();
+                    }
+                    lock().notifyAll();
+                }
+                ret = valueOf(myCall.typeof, (String) myCall.result);
+            } finally {
+                myCall.noLongerNeeded();
             }
-            for (;;) {
-                if (myCall.typeof != null) {
-                    break;
-                }
-                try {
-                    lock().wait();
-                } catch (InterruptedException ex) {
-                    log(Level.SEVERE, null, ex);
-                }
-                Item c = topMostCall();
-                if (c != null) {
-                    c.inJava();
-                }
-                lock().notifyAll();
-            }
-            ret = valueOf(myCall.typeof, (String) myCall.result);
-            myCall.destroy();
         }
         if (first) {
             arguments.clear();

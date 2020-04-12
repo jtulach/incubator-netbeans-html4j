@@ -540,9 +540,11 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            toString(sb, "");
-            return sb.toString();
+            synchronized (lock()) {
+                StringBuilder sb = new StringBuilder();
+                toString(sb, "");
+                return sb.toString();
+            }
         }
 
         private void toString(StringBuilder sb, String sep) {
@@ -561,6 +563,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
 
         protected final String inJavaScript(int[] finished) {
+            assert Thread.holdsLock(lock());
             if (this.method != null) {
                 return js(finished);
             } else {
@@ -569,6 +572,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
 
         protected final void inJava() {
+            assert Thread.holdsLock(lock());
             if (this.method == null) {
                 return;
             }
@@ -596,6 +600,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         
 
         protected String js(int[] finished) {
+            assert Thread.holdsLock(lock());
             if (Boolean.TRUE.equals(done)) {
                 StringBuilder sb = new StringBuilder();
                 encodeObject(result, false, sb, null);
@@ -619,6 +624,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
 
         protected String sj(int[] finished) {
+            assert Thread.holdsLock(lock());
             if (Boolean.TRUE.equals(done)) {
                 return null;
             }
@@ -627,13 +633,18 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
 
         protected final void result(String newType, String newResult) {
+            assert Thread.holdsLock(lock());
             if (this.method != null) {
                 throw new UnsupportedOperationException();
             }
             this.typeof = newType;
             this.result = newResult;
-            this.done = true;
             log(Level.FINE, "result ({0}): {1} for {2}", typeof, result, toExec);
+        }
+
+        protected void destroy() {
+            assert Thread.holdsLock(lock());
+            this.done = true;
         }
     } // end of Item
     
@@ -808,6 +819,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                 lock().notifyAll();
             }
             ret = valueOf(myCall.typeof, (String) myCall.result);
+            myCall.destroy();
         }
         if (first) {
             arguments.clear();

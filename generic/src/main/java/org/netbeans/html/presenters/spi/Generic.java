@@ -770,12 +770,14 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
     }
 
     @Texts({
-        "flushExec=\n\nds(@1).toJava('r', '@2', null);\n"
+        "flushBegin=try {\n",
+        "flushExec=\n\n} finally {\n  ds(@1).toJava('r', '@2', null);\n}\n"
     })
     void flushImpl() {
         synchronized (lock()) {
             if (deferred != null) {
                 final int id = nextCallId();
+                deferred.insert(0, Strings.flushBegin());
                 log(Level.FINE, "flush#{1}: {0}", deferred, id);
                 exec(id, Strings.flushExec(key, id).toString());
             }

@@ -519,42 +519,23 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         void callbackReady(String name);
     }
     
-    private class Item implements Runnable {
+    private abstract class Item {
         final int id;
         final Item prev;
-        Boolean done;
-        boolean resultObtained;
 
-        final Method method;
-        final Object thiz;
-        final Object[] params;
-        Object result;
-        
-        Item(int id, Item prev, Method method, Object thiz, Object[] params) {
+        Item(int id, Item prev) {
             this.id = id;
             this.prev = prev;
-            this.method = method;
-            this.thiz = thiz;
-            this.params = adaptParams(method, Arrays.asList(params));
-            this.toExec = null;
         }
 
-        @Override
-        public String toString() {
-            synchronized (lock()) {
-                StringBuilder sb = new StringBuilder();
-                toString(sb, "");
-                return sb.toString();
-            }
-        }
+        abstract void result(String typeof, String res);
+        abstract void noLongerNeeded();
+        abstract void inJava();
+        abstract String inJavaScript(int[] finishedId);
+        abstract void header(StringBuilder sb, String sep);
 
-        private void toString(StringBuilder sb, String sep) {
-            sb.append(sep).append("Item[id=").append(id).append(", ");
-            if (method != null) {
-                sb.append("method=").append(method.getName());
-            } else {
-                sb.append("javascript");
-            }
+        final void toString(StringBuilder sb, String sep) {
+            header(sb, sep);
             if (prev != null) {
                 sb.append(", prev=\n");
                 prev.toString(sb, "  " + sep);
@@ -563,15 +544,51 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             sb.append("]");
         }
 
-        protected final String inJavaScript(int[] finished) {
-            assert Thread.holdsLock(lock());
-            if (this.method != null) {
-                return js(finished);
-            } else {
-                return sj(finished);
+        @Override
+        public final String toString() {
+            synchronized (lock()) {
+                StringBuilder sb = new StringBuilder();
+                toString(sb, "");
+                return sb.toString();
             }
         }
+    }
 
+    private class JavaItem extends Item implements Runnable {
+        Boolean done;
+        boolean resultObtained;
+
+        final Method method;
+        final Object thiz;
+        final Object[] params;
+        Object result;
+        
+        JavaItem(int id, Item prev, Method method, Object thiz, Object[] params) {
+            super(id, prev);
+            this.method = method;
+            this.thiz = thiz;
+            this.params = adaptParams(method, Arrays.asList(params));
+        }
+
+        @Override
+        final void header(StringBuilder sb, String sep) {
+            sb.append(sep).append("JavaItem[id=").append(id).append(", ");
+            sb.append("method=").append(method.getName());
+        }
+
+        @Override
+        protected final String inJavaScript(int[] finished) {
+            assert Thread.holdsLock(lock());
+            if (Boolean.TRUE.equals(done)) {
+                StringBuilder sb = new StringBuilder();
+                encodeObject(result, false, sb, null);
+                finished[0] = -1;
+                return sb.toString();
+            }
+            return null;
+        }
+
+        @Override
         protected final void inJava() {
             assert Thread.holdsLock(lock());
             if (this.method == null) {
@@ -591,40 +608,51 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             }
         }
         
-        @Override public void run() {
+        @Override
+        public void run() {
             synchronized (lock()) {
                 log(Level.FINE, "run: {0}", this);
                 inJava();
                 lock().notifyAll();
             }
         }
-        
 
-        protected String js(int[] finished) {
-            assert Thread.holdsLock(lock());
-            if (Boolean.TRUE.equals(done)) {
-                StringBuilder sb = new StringBuilder();
-                encodeObject(result, false, sb, null);
-                finished[0] = -1;
-                return sb.toString();
-            }
-            return null;
+        @Override
+        void result(String typeof, String res) {
         }
 
+        @Override
+        void noLongerNeeded() {
+            resultObtained = true;
+        }
+    }
+
+    private final class JsItem extends Item {
         private final String toExec;
         private String typeof;
+        private Boolean done;
+        private String result;
         
-        Item(int id, Item prev, String toExec) {
-            this.id = id;
-            this.prev = prev;
+        JsItem(int id, Item prev, String toExec) {
+            super(id, prev);
             this.toExec = toExec;
-            
-            this.method = null;
-            this.params = null;
-            this.thiz = null;
         }
 
-        protected String sj(int[] finished) {
+        @Override
+        protected final void result(String newType, String newResult) {
+            assert Thread.holdsLock(lock());
+            this.typeof = newType;
+            this.result = newResult;
+            log(Level.FINE, "result ({0}): {1} for {2}", typeof, result, toExec);
+        }
+
+        @Override
+        protected final void noLongerNeeded() {
+        }
+
+        @Override
+        protected final String inJavaScript(int[] finished) {
+            assert Thread.holdsLock(lock());
             assert Thread.holdsLock(lock());
             if (Boolean.TRUE.equals(done)) {
                 return null;
@@ -633,20 +661,16 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             return "javascript:" + finished[0] + "/" + toExec;
         }
 
-        protected final void result(String newType, String newResult) {
-            assert Thread.holdsLock(lock());
-            if (this.method != null) {
-                throw new UnsupportedOperationException();
-            }
-            this.typeof = newType;
-            this.result = newResult;
-            log(Level.FINE, "result ({0}): {1} for {2}", typeof, result, toExec);
+        @Override
+        protected final void inJava() {
         }
 
-        protected final void noLongerNeeded() {
-            assert Thread.holdsLock(lock());
-            this.resultObtained = true;
+        @Override
+        final void header(StringBuilder sb, String sep) {
+            sb.append(sep).append("JsItem[id=").append(id).append(", ");
+            sb.append("javascript");
         }
+
     } // end of Item
     
     final void result(String counterId, String typeof, String res) {
@@ -664,7 +688,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                 return;
             }
             final int id = Integer.parseInt(counterId);
-            final Item top = topMostCall();
+            final Item top = topMostCall(null);
             Item my = findCall(id);
             if (top == my) {
                 top.result(typeof, res);
@@ -701,10 +725,10 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             }
             params.addAll(Arrays.asList((Object[]) args));
             Object[] converted = adaptParams(method, params);
-            Item top = topMostCall();
+            Item top = topMostCall(null);
             boolean first = top == null;
-            log(Level.FINE, "jc: {0}@{1}args: {2} is first: {3}, now: {4}", new Object[]{method.getName(), vm, params, first, topMostCall()});
-            Item newItem = registerCall(new Item(nextCallId(), top, method, vm, converted));
+            log(Level.FINE, "jc: {0}@{1}args: {2} is first: {3}, now: {4}", new Object[]{method.getName(), vm, params, first, topMostCall(null)});
+            JavaItem newItem = registerCall(new JavaItem(nextCallId(), top, method, vm, converted));
             try {
                 if (first || synchronous) {
                     dispatch(newItem);
@@ -726,7 +750,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                     deferred = null;
                     return ret;
                 }
-                final Item top = topMostCall();
+                final Item top = topMostCall(null);
                 String jsToExec = top.inJavaScript(finishedId);
                 log(Level.FINE, "jr: {0} jsToExec: {1} finished: {2}", new Object[]{top, jsToExec, finishedId[0]});
                 if (jsToExec != null) {
@@ -760,7 +784,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
 
     final void deferExec(StringBuilder sb) {
         synchronized (lock()) {
-            log(Level.FINE, "deferExec: {0} empty: {1}, call: {2}", new Object[]{sb, deferred == null, topMostCall()});
+            log(Level.FINE, "deferExec: {0} empty: {1}, call: {2}", new Object[]{sb, deferred == null, topMostCall(null)});
             if (deferred == null) {
                 deferred = sb;
             } else {
@@ -795,15 +819,15 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                 log(Level.FINE, "Flushing {0}", fn);
             }
 
-            Item myCall;
+            JsItem myCall;
             boolean load;
-            final Item top = topMostCall();
+            final Item top = topMostCall(null);
             if (top != null) {
-                myCall = registerCall(new Item(id, top, fn));
+                myCall = registerCall(new JsItem(id, top, fn));
                 load = synchronous;
                 first = false;
             } else {
-                myCall = registerCall(new Item(id, null, null));
+                myCall = registerCall(new JsItem(id, null, null));
                 load = true;
                 first = true;
             }
@@ -820,7 +844,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
                     } catch (InterruptedException ex) {
                         log(Level.SEVERE, null, ex);
                     }
-                    Item c = topMostCall();
+                    Item c = topMostCall(null);
                     if (c != null) {
                         c.inJava();
                     }
@@ -1034,9 +1058,14 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
     }
 
-    private Item topMostCall() {
+    private Item topMostCall(Class<? extends Item> type) {
         assert Thread.holdsLock(lock());
-        return call;
+        for (Item it = call; it != null; it = it.prev) {
+            if (type == null || type.isInstance(it)) {
+                return it;
+            }
+        }
+        return null;
     }
 
     private Item findCall(int reqId) {
@@ -1050,7 +1079,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         }
     }
 
-    private Item registerCall(Item call) {
+    private <T extends Item> T registerCall(T call) {
         assert Thread.holdsLock(lock());
         this.call = call;
         lock().notifyAll();

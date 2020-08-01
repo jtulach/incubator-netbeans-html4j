@@ -1,0 +1,34 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.7' apply false
+}
+
+def commonProject = project.parent
+def jdk8 = System.getProperty("java.version").startsWith("1.8")
+
+mainClassName = 'cz.xelfi.demo.react4jdemo.DesktopMain'
+
+distributions {
+    main {
+        baseName = commonProject.name + '-desktop'
+        contents {
+            from "${commonProject.projectDir}/src/main/webapp/"
+        }
+    }
+}
+tasks.run {
+    jvmArgs "-Dbrowser.rootdir=${commonProject.projectDir}/src/main/webapp/"
+}
+if (!jdk8) {
+    apply plugin: 'org.openjfx.javafxplugin'
+    javafx {
+        version = "11"
+        modules = ["javafx.web"]
+    }
+}
+dependencies {
+    compile commonProject
+    compile "org.netbeans.html:net.java.html.boot:1.6.1"
+    runtime "org.netbeans.html:net.java.html.boot.fx:1.6.1"
+}

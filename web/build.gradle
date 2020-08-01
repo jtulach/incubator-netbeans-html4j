@@ -1,0 +1,34 @@
+buildscript {
+    ext.bck2brwsr_version = '0.31'
+
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.apidesign.bck2brwsr:bck2brwsr-maven-plugin:$bck2brwsr_version"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'bck2brwsr'
+
+targetCompatibility = '1.8'
+sourceCompatibility = '1.8'
+
+mainClassName = 'cz.xelfi.demo.react4jdemo.BrowserMain'
+
+
+def commonProject = project.parent
+
+dependencies {
+    compile commonProject
+}
+
+configurations.bck2brwsr {
+    exclude group: 'org.jetbrains', module: 'annotations'
+}
+
+bck2brwsrPages.from {
+    fileTree("${commonProject.projectDir}/src/main/webapp/pages")
+}
+bck2brwsrAot.dependsOn(bck2brwsrPages)

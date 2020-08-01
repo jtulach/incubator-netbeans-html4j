@@ -1,0 +1,132 @@
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>React for Java Demo</title>
+    <style type="text/css">
+<!--
+body {color: #000000; background-color: #ffffff; font-family: monospace}
+pre {color: #000000; background-color: #ffffff; font-family: monospace}
+table {color: #000000; background-color: #e9e8e2; font-family: monospace}
+.ST1 {font-family: monospace; font-weight: bold}
+.ST3 {color: #009900}
+.ST2 {font-family: monospace; font-weight: bold; font-style: italic}
+.ST0 {font-family: monospace; font-style: italic}
+.literal {color: #0000e6}
+.string {color: #ce7b00}
+-->
+    </style>
+
+  </head>
+  <body>
+
+    <h2>React for Java Demo</h2>
+
+    <div id="like_button_container"></div>
+
+    <script src="react.development.js" crossorigin></script>
+    <script src="react-dom.development.js" crossorigin></script>
+    <!-- ${browser.bootstrap} -->
+    
+    
+    <h2>What is this?</h2>
+    
+    <p>
+    This is a demo of <a target="_blank" href="http://reactjs.org">React.js</a> controlled by 
+    application written in JavaFX light and <a target="_blank" href="http://github.com/jtulach/bck2brwsr">transpiled to JavaScript</a>.
+    Put following <em>div</em> on your HTML page:
+    </p>
+    
+    <pre>
+&lt;div id="like_button_container">&lt;/div></pre>
+    <p>
+        and then control it from the Java code that follows. Click the <em>Like</em> button
+        if you like what you see!
+    </p> 
+<table width="100%"><tr><td align="center">LikeButton.java</td></tr></table>
+<pre>
+<span class="literal">package</span> cz.xelfi.demo.react4jdemo;
+
+<span class="literal">import</span> javafx.beans.property.BooleanProperty;
+<span class="literal">import</span> javafx.beans.property.SimpleBooleanProperty;
+
+<span class="literal">public</span> <span class="literal">final</span> <span class="literal">class</span> <span class="ST1">LikeButton</span> <span class="literal">extends</span> React.<span class="ST0">Component</span>&lt;LikeButton.<span class="ST0">LikeState</span>&gt;  {
+    <span class="literal">public</span> <span class="ST1">LikeButton</span>(<span class="ST0">Props</span> props) {
+        <span class="literal">super</span>(props);
+        setState(<span class="literal">new</span> LikeState(<span class="literal">f</span><span class="literal">alse</span>));
+    }
+    
+    <span class="literal">static</span> <span class="literal">final</span> <span class="literal">class</span> <span class="ST2">LikeState</span> <span class="literal">implements</span> FXBeanInfo.<span class="ST0">Provider</span> {
+        <span class="literal">final</span> BooleanProperty <span class="ST3">liked</span> = <span class="literal">new</span> SimpleBooleanProperty(<span class="literal">t</span><span class="literal">his</span>, <span class="string">&quot;</span><span class="string">liked</span><span class="string">&quot;</span>, <span class="literal">f</span><span class="literal">alse</span>);
+        <span class="literal">private</span> <span class="literal">final</span> FXBeanInfo <span class="ST3">info</span> = FXBeanInfo.<span class="ST0">newBuilder</span>(<span class="literal">t</span><span class="literal">his</span>)
+                .property(<span class="ST3">l</span><span class="ST3">iked</span>)
+                .build();
+
+        <span class="literal">public</span> <span class="ST1">LikeState</span>(<span class="literal">boolean</span> liked) {
+            <span class="literal">this</span>.<span class="ST3">liked</span>.set(liked);
+        }
+        
+        @Override
+        <span class="literal">public</span> FXBeanInfo <span class="ST1">getFXBeanInfo</span>() {
+            <span class="literal">return</span> <span class="ST3">info</span>;
+        }
+    }
+
+
+    <span class="literal">void</span> <span class="ST1">doLike</span>() {
+        setState(<span class="literal">new</span> LikeState(<span class="literal">t</span><span class="literal">rue</span>));
+    }
+    
+    @Override
+    <span class="literal">protected</span> Object <span class="ST1">render</span>() {
+        <span class="literal">if</span> (<span class="literal">this</span>.state().<span class="ST3">liked</span>.get()) {
+            <span class="literal">return</span> <span class="string">&quot;</span><span class="string">You like React for Java!</span><span class="string">&quot;</span>;
+        }
+
+        <span class="literal">class</span> <span class="ST1">ButtonState</span> <span class="literal">implements</span> FXBeanInfo.<span class="ST0">Provider</span> {
+            <span class="literal">private</span> <span class="literal">final</span> FXBeanInfo <span class="ST3">info</span> = FXBeanInfo.<span class="ST0">newBuilder</span>(<span class="literal">t</span><span class="literal">his</span>)
+                    .action(<span class="string">&quot;</span><span class="string">onClick</span><span class="string">&quot;</span>, LikeButton.<span class="literal">this</span>::doLike)
+                    .build();
+
+            @Override
+            <span class="literal">public</span> FXBeanInfo <span class="ST1">getFXBeanInfo</span>() {
+                <span class="literal">return</span> <span class="ST3">info</span>;
+            }
+        }
+        
+        <span class="literal">return</span> React.<span class="ST0">createElement</span>(
+          <span class="string">&quot;</span><span class="string">button</span><span class="string">&quot;</span>,
+          <span class="literal">new</span> ButtonState(),
+          <span class="string">&quot;</span><span class="string">Like</span><span class="string">&quot;</span>
+        );
+    }
+
+    <span class="literal">public</span> <span class="literal">static</span> <span class="literal">void</span> <span class="ST2">onPageLoad</span>() {
+        React.<span class="ST0">register</span>(<span class="string">&quot;</span><span class="string">LikeButton</span><span class="string">&quot;</span>, LikeButton::<span class="literal">new</span>);
+        React.<span class="ST0">render</span>(<span class="string">&quot;</span><span class="string">LikeButton</span><span class="string">&quot;</span>, <span class="string">&quot;</span><span class="string">like_button_container</span><span class="string">&quot;</span>);
+    }
+}
+
+</pre></body>
+</html>
+    

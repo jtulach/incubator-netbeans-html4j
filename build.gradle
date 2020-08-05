@@ -3,7 +3,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "org.netbeans.html:html4j-maven-plugin:1.6.1"
+        classpath "org.netbeans.html:html4j-maven-plugin:1.7"
     }
 }
 
@@ -27,11 +27,12 @@ targetCompatibility = '1.8'
 sourceCompatibility = '1.8'
 
 dependencies {
-    compile "org.netbeans.html:net.java.html.json:1.6.1"
-    compile "org.netbeans.html:net.java.html.boot:1.6.1"
+    compile "org.netbeans.html:net.java.html.json:1.7"
+    compile "org.netbeans.html:net.java.html.boot:1.7"
     compile "com.dukescript.api:javafx.base:8.60.11"
-    compile "com.dukescript.api:javafx.beaninfo:0.5"
-    annotationProcessor "org.netbeans.html:net.java.html.boot:1.6.1"
-    annotationProcessor "org.netbeans.html:net.java.html.json:1.6.1"
-    runtime "org.netbeans.html:ko4j:1.6.1"
+    compile "com.dukescript.api:javafx.beaninfo:0.6"
+    annotationProcessor "com.dukescript.api:javafx.beaninfo:0.6"
+    annotationProcessor "org.netbeans.html:net.java.html.boot:1.7"
+    annotationProcessor "org.netbeans.html:net.java.html.json:1.7"
+    runtime "org.netbeans.html:ko4j:1.7"
 }

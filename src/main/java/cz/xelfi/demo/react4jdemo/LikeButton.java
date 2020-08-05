@@ -22,8 +22,6 @@ import com.dukescript.api.javafx.beans.FXBeanInfo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Props;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
-import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.SimpleBooleanProperty;
 
 public final class LikeButton extends React.Component<LikeButton.LikeState>  {
     public LikeButton(Props props) {
@@ -31,19 +29,12 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         setState(new LikeState(false));
     }
 
-    static final class LikeState implements FXBeanInfo.Provider {
-        final BooleanProperty liked = new SimpleBooleanProperty(this, "liked", false);
-        private final FXBeanInfo info = FXBeanInfo.newBuilder(this)
-                .property(liked)
-                .build();
+    @FXBeanInfo.Generate
+    static final class LikeState extends LikeStateBeanInfo {
+        final boolean liked;
 
-        public LikeState(boolean liked) {
-            this.liked.set(liked);
-        }
-
-        @Override
-        public FXBeanInfo getFXBeanInfo() {
-            return info;
+        LikeState(boolean liked) {
+            this.liked = liked;
         }
     }
 
@@ -52,25 +43,21 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         setState(new LikeState(true));
     }
 
+    @FXBeanInfo.Generate
+    class ButtonState extends ButtonStateBeanInfo {
+        void onClick() {
+            doLike();
+        }
+    }
+
     @Override
     protected Object render() {
-        if (this.state().liked.get()) {
+        if (this.state().liked) {
             return React.createElement("div", null,
-                    "You like React for JavaFX Light! See ",
-                    React.createElement("a", props("href", "like.html"), "more"),
-                    "!..."
+                "You like React for JavaFX Light! See ",
+                React.createElement("a", props("href", "like.html"), "more"),
+                "!..."
             );
-        }
-
-        class ButtonState implements FXBeanInfo.Provider {
-            private final FXBeanInfo info = FXBeanInfo.newBuilder(this)
-                    .action("onClick", LikeButton.this::doLike)
-                    .build();
-
-            @Override
-            public FXBeanInfo getFXBeanInfo() {
-                return info;
-            }
         }
 
         return React.createElement(

@@ -29,7 +29,7 @@ if (!jdk8) {
 }
 dependencies {
     compile commonProject
-    compile "org.netbeans.html:net.java.html.boot:1.6.1"
-    runtime "org.netbeans.html:net.java.html.boot.fx:1.6.1"
-    runtime "org.netbeans.html:xhr4j:1.6.1"
+    compile "org.netbeans.html:net.java.html.boot:1.7"
+    runtime "org.netbeans.html:net.java.html.boot.fx:1.7"
+    runtime "org.netbeans.html:xhr4j:1.7"
 }

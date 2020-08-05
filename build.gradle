@@ -31,5 +31,7 @@ dependencies {
     compile "org.netbeans.html:net.java.html.boot:1.6.1"
     compile "com.dukescript.api:javafx.base:8.60.11"
     compile "com.dukescript.api:javafx.beaninfo:0.5"
+    annotationProcessor "org.netbeans.html:net.java.html.boot:1.6.1"
+    annotationProcessor "org.netbeans.html:net.java.html.json:1.6.1"
     runtime "org.netbeans.html:ko4j:1.6.1"
 }

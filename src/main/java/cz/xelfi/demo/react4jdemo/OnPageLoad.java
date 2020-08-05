@@ -18,8 +18,29 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
-final class BrowserMain {
+public final class OnPageLoad {
+    private OnPageLoad() {
+    }
+
     public static void main(String... args) {
-        OnPageLoad.main(args);
+        String page;
+        try {
+            page = args[0];
+        } catch (Exception ex) {
+            page = "";
+        }
+
+        String code;
+        switch (page) {
+            case "like+model":
+                LikeButtonNoJavaFX.onPageLoad();
+                code = "LikeButtonNoJavaFX.java";
+                break;
+            default:
+                LikeButton.onPageLoad();
+                code = "LikeButton.java";
+        }
+
+        CodeComponent.loadCode(code);
     }
 }

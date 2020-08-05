@@ -23,6 +23,20 @@
   <head>
     <meta charset="UTF-8" />
     <title>React for Java Demo</title>
+    <style type="text/css">
+<!--
+body {color: #000000; background-color: #ffffff; font-family: monospace}
+pre {color: #000000; background-color: #ffffff; font-family: monospace}
+table {color: #000000; background-color: #e9e8e2; font-family: monospace}
+.ST1 {font-family: monospace; font-weight: bold}
+.ST3 {color: #009900}
+.ST2 {font-family: monospace; font-weight: bold; font-style: italic}
+.ST0 {font-family: monospace; font-style: italic}
+.literal {color: #0000e6}
+.string {color: #ce7b00}
+-->
+    </style>
+
   </head>
   <body>
 
@@ -32,24 +46,31 @@
 
     <script src="react.development.js" crossorigin></script>
     <script src="react-dom.development.js" crossorigin></script>
-    <!-- ${browser.bootstrap} -->
-    
-    
+    <script src='bck2brwsr.js'></script>
+    <script>
+    var vm = bck2brwsr('main.js');
+    vm.loadClass('cz.xelfi.demo.react4jdemo.BrowserMain', function(mainClass) {
+      mainClass.invoke('main', [ 'like+model' ]);
+    });
+    </script>
+
+
     <h2>What is this?</h2>
-    
+
     <p>
-    This is a demo of <a target="_blank" href="http://reactjs.org">React.js</a> controlled by 
-    application written in JavaFX light and <a target="_blank" href="http://github.com/jtulach/bck2brwsr">transpiled to JavaScript</a>.
+    This is a demo of <a target="_blank" href="http://reactjs.org">React.js</a> controlled by
+    application written in Apache
+    <a target="_blank" href="https://bits.netbeans.org/html+java/1.7/">HTML/Java API</a> and
+    <a target="_blank" href="http://github.com/jtulach/bck2brwsr">transpiled to JavaScript</a>.
     Put following <em>div</em> on your HTML page:
     </p>
-    
+
     <pre>
 &lt;div id="like_button_container">&lt;/div></pre>
     <p>
         and then control it from the Java code that follows. Click the <em>Like</em> button
         if you like what you see!
-    </p> 
+    </p>
     <div id="codecontainer"></div>
-  </body>
+</body>
 </html>
-    

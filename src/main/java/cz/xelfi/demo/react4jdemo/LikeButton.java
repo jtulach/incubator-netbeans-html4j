@@ -21,6 +21,7 @@ package cz.xelfi.demo.react4jdemo;
 import com.dukescript.api.javafx.beans.FXBeanInfo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Props;
+import static cz.xelfi.demo.react4jdemo.api.React.props;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 
@@ -29,7 +30,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         super(props);
         setState(new LikeState(false));
     }
-    
+
     static final class LikeState implements FXBeanInfo.Provider {
         final BooleanProperty liked = new SimpleBooleanProperty(this, "liked", false);
         private final FXBeanInfo info = FXBeanInfo.newBuilder(this)
@@ -39,7 +40,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         public LikeState(boolean liked) {
             this.liked.set(liked);
         }
-        
+
         @Override
         public FXBeanInfo getFXBeanInfo() {
             return info;
@@ -50,11 +51,15 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
     void doLike() {
         setState(new LikeState(true));
     }
-    
+
     @Override
     protected Object render() {
         if (this.state().liked.get()) {
-            return "You like React for Java!";
+            return React.createElement("div", null,
+                    "You like React for JavaFX Light! See ",
+                    React.createElement("a", props("href", "like.html"), "more"),
+                    "!..."
+            );
         }
 
         class ButtonState implements FXBeanInfo.Provider {
@@ -67,7 +72,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
                 return info;
             }
         }
-        
+
         return React.createElement(
           "button",
           new ButtonState(),

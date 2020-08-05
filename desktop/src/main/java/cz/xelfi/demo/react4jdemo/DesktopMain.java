@@ -22,8 +22,9 @@ import net.java.html.boot.BrowserBuilder;
 
 final class DesktopMain {
     public static void main(String[] args) {
-        BrowserBuilder.newBrowser().loadPage("pages/index.html")
-                .loadFinished(LikeButton::onPageLoad)
+        String page = args.length == 0 ? "index.html" : args[0];
+        BrowserBuilder.newBrowser().loadPage("pages/" + page)
+                .loadFinished(OnPageLoad::main)
                 .showAndWait();
         System.exit(0);
     }

@@ -35,4 +35,7 @@ dependencies {
     annotationProcessor "org.netbeans.html:net.java.html.boot:1.7"
     annotationProcessor "org.netbeans.html:net.java.html.json:1.7"
     runtime "org.netbeans.html:ko4j:1.7"
+    testCompile "com.dukescript.api:junit-browser-runner:1.0"
+    testRuntime "org.netbeans.html:net.java.html.boot.fx:1.7"
+    testAnnotationProcessor "org.netbeans.html:net.java.html.boot:1.7"
 }

@@ -21,6 +21,13 @@ package cz.xelfi.demo.react4jdemo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.java.html.js.JavaScriptBody;
 import net.java.html.json.Model;
 import net.java.html.json.OnReceive;
@@ -70,7 +77,7 @@ final class CodeComponent extends React.Component<LoadingUrl> {
         if (state().getCode() == null) {
             content = React.createElement("div", null, "Loading " + state().getUrl());
         } else {
-            content = React.createElement("pre", null, state().getCode());
+            content = boldJavaKeywords(state().getCode(), Collections.emptyMap(), Collections.emptySet());
         }
         return React.createElement("div", null,
             React.createElement("table", React.props("width", "100%"),
@@ -101,5 +108,112 @@ final class CodeComponent extends React.Component<LoadingUrl> {
         } catch (MalformedURLException ex) {
             ex.printStackTrace();
         }
+    }
+    private static final Pattern WORDS = Pattern.compile("(\\w+)|(//.*)\n|(\"[^\"]*\")");
+    static Object boldJavaKeywords(String text, Map<String,String> imports, Set<String> packages) {
+        List<Object> children = new ArrayList<>();
+        int prev = 0;
+        Matcher m = WORDS.matcher(text);
+        while (m.find()) {
+            if (m.start() > prev) {
+                children.add(text.substring(prev, m.start()));
+            }
+            prev = m.end();
+
+            Object append;
+            switch (m.group(0)) {
+                case "abstract":
+                case "assert":
+                case "boolean":
+                case "break":
+                case "byte":
+                case "case":
+                case "catch":
+                case "class":
+                case "const":
+                case "continue":
+                case "default":
+                case "do":
+                case "double":
+                case "else":
+                case "enum":
+                case "extends":
+                case "final":
+                case "finally":
+                case "float":
+                case "for":
+                case "goto":
+                case "char":
+                case "if":
+                case "implements":
+                case "import":
+                case "instanceof":
+                case "int":
+                case "interface":
+                case "long":
+                case "native":
+                case "new":
+                case "package":
+                case "private":
+                case "protected":
+                case "public":
+                case "return":
+                case "short":
+                case "static":
+                case "strictfp":
+                case "super":
+                case "switch":
+                case "synchronized":
+                case "this":
+                case "throw":
+                case "throws":
+                case "transient":
+                case "try":
+                case "void":
+                case "volatile":
+                case "while":
+                case "true":
+                case "false":
+                case "null":
+                    append = React.createElement("b", null, m.group(0));
+                    break;
+                default:
+                    if (m.group(0).startsWith("//")) {
+                        append = React.createElement("em", null, m.group(0).substring(0, m.group(0).length() - 1));
+                        break;
+                    }
+                    if (m.group(0).startsWith("\"")) {
+                        append = React.createElement("em", null, m.group(0));
+                        break;
+                    }
+                    String fqn;
+                    fqn = imports.get(m.group(0));
+                    if (fqn == null) {
+                        fqn = tryLoad("java.lang", m.group(0));
+                        if (fqn == null && packages != null) {
+                            for (String p : packages) {
+                                fqn = tryLoad(p, m.group(0));
+                                if (fqn != null) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (fqn == null) {
+                        append = m.group(0);
+                    } else {
+                        append = "{@link " + fqn + "}";
+                    }
+            }
+            children.add(append);
+        }
+        if (prev < text.length()) {
+            children.add(text.substring(prev));
+        }
+        return React.createElement("pre", null, children.toArray());
+    }
+
+    private static String tryLoad(String pkg, String name) {
+        return null;
     }
 }

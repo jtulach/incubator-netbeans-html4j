@@ -22,12 +22,18 @@ import java.util.HashMap;
 import java.util.Map;
 import net.java.html.BrwsrCtx;
 import net.java.html.js.JavaScriptBody;
+import net.java.html.js.JavaScriptResource;
 import net.java.html.json.Models;
 
 public class React {
     private static final Map<String,Object> FACTORIES = new HashMap<>();
+    static {
+        Core.initialize();
+        DOM.initialize();
+    }
 
     public static Object createElement(Object type, Object attrs, Object... children) {
+        DOM.initialize();
         Object rawModel = null;
         if (attrs == null) {
             rawModel = toJS(new Object[0]);
@@ -185,5 +191,17 @@ public class React {
         protected final void forceUpdate() {
             React.forceUpdate(props.thiz);
         }
+    }
+
+    @JavaScriptResource("react.development.js")
+    private static final class Core {
+        @JavaScriptBody(args = {  }, body = "")
+        public static native void initialize();
+    }
+
+    @JavaScriptResource("react-dom.development.js")
+    private static final class DOM {
+        @JavaScriptBody(args = {  }, body = "")
+        public static native void initialize();
     }
 }

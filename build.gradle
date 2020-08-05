@@ -9,10 +9,20 @@ buildscript {
 
 plugins {
     id "me.tatarka.retrolambda" version "3.7.1"
+    id 'org.openjfx.javafxplugin' version '0.0.7' apply false
+}
+
+if (!System.getProperty("java.version").startsWith("11")) {
+    throw new IllegalStateException("Please use JDK11, that one is known to work with Gradle as well as libraries and plugins!");
 }
 
 apply plugin: 'java'
 apply plugin: 'html4j'
+apply plugin: 'org.openjfx.javafxplugin'
+javafx {
+    version = "11"
+    modules = ["javafx.web"]
+}
 
 group 'com.dukescript.demo'
 version '1.0-SNAPSHOT'
@@ -39,3 +49,9 @@ dependencies {
     testRuntime "org.netbeans.html:net.java.html.boot.fx:1.7"
     testAnnotationProcessor "org.netbeans.html:net.java.html.boot:1.7"
 }
+
+task copyReactResources(type: Copy) {
+    from 'src/main/resources' into 'build/retrolambda/main/';
+}
+
+compileJava.dependsOn(copyReactResources);

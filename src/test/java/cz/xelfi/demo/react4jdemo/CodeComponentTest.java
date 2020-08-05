@@ -22,7 +22,6 @@ import java.util.Collections;
 import net.java.html.js.JavaScriptBody;
 import net.java.html.junit.BrowserRunner;
 import org.junit.Assert;
-import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

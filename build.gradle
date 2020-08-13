@@ -18,11 +18,6 @@ if (!System.getProperty("java.version").startsWith("11")) {
 
 apply plugin: 'java'
 apply plugin: 'html4j'
-apply plugin: 'org.openjfx.javafxplugin'
-javafx {
-    version = "11"
-    modules = ["javafx.web"]
-}
 
 group 'com.dukescript.demo'
 version '1.0-SNAPSHOT'

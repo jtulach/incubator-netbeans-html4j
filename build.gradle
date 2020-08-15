@@ -12,20 +12,25 @@ plugins {
     id 'org.openjfx.javafxplugin' version '0.0.7' apply false
 }
 
-if (!System.getProperty("java.version").startsWith("11")) {
-    throw new IllegalStateException("Please use JDK11, that one is known to work with Gradle as well as libraries and plugins!");
-}
-
 apply plugin: 'java'
 apply plugin: 'html4j'
 
 group 'com.dukescript.demo'
-version '1.0-SNAPSHOT'
 
 allprojects {
     repositories {
         mavenCentral()
     }
+
+    task checkJavaVersion {
+        doLast {
+            if (!System.getProperty("java.version").startsWith("11")) {
+                throw new IllegalStateException("Please use JDK11, that one is known to work with Gradle as well as libraries and plugins!");
+            }
+        }
+    }
+
+    compileJava.dependsOn(checkJavaVersion)
 }
 
 targetCompatibility = '1.8'

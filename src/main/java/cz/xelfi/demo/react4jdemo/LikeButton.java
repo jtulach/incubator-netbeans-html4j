@@ -56,7 +56,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
             return React.createElement("div", null,
                 "You like React for JavaFX Light! See ",
                 React.createElement("a", props("href", "like.html"), "more"),
-                "!..."
+                "..."
             );
         }
 

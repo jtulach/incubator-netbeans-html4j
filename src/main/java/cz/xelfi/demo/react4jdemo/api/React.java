@@ -121,7 +121,7 @@ public class React {
         Component<?> create(Props props);
     }
 
-    public static Props props(String... keyAndValue) {
+    public static Props props(Object... keyAndValue) {
         return new Props(null, toJS(keyAndValue));
     }
 
@@ -177,6 +177,10 @@ public class React {
 
         protected final State state() {
             return this.state;
+        }
+
+        protected final Object getProperty(String name) {
+            return this.props.get(name);
         }
 
         protected final void setState(State model) {

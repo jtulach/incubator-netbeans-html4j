@@ -22,20 +22,21 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>React for Java Demo</title>
+    <title>React for Java Tic Tac Toe</title>
     <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="ttt.css">
   </head>
   <body>
 
-    <h2>React for Java Demo</h2>
+    <h2>Tic Tac Toe</h2>
 
-    <div id="like_button_container"></div>
+    <div id="root"></div>
 
     <script src='bck2brwsr.js'></script>
     <script>
     var vm = bck2brwsr('main.js');
     vm.loadClass('cz.xelfi.demo.react4jdemo.BrowserMain', function(mainClass) {
-      mainClass.invoke('main', [ 'like+model' ]);
+      mainClass.invoke('main', [ 'ttt1' ]);
     });
     </script>
 
@@ -43,19 +44,12 @@
     <h2>What is this?</h2>
 
     <p>
-    This is a demo of <a target="_blank" href="http://reactjs.org">React.js</a> controlled by
-    application written in Apache
-    <a target="_blank" href="https://bits.netbeans.org/html+java/1.7/">HTML/Java API</a> and
+    This is a rewrite of React.js <a target="_blank" href="https://reactjs.org/tutorial/tutorial.html">Tic Tac Toe tutorial</a> 
+    controlled by application written in JavaFX Light and
     <a target="_blank" href="http://github.com/jtulach/bck2brwsr">transpiled to JavaScript</a>.
-    Put following <em>div</em> on your HTML page:
-    </p>
-
-    <pre>
-&lt;div id="like_button_container">&lt;/div></pre>
-    <p>
-        and then control it from the Java code that follows. Click the <em>Like</em> button
-        if you like what you see!
+    Put following <em>div</em> on your HTML page.
     </p>
     <div id="codecontainer"></div>
 </body>
 </html>
+

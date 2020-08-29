@@ -36,6 +36,10 @@ public final class OnPageLoad {
                 LikeButtonNoJavaFX.onPageLoad();
                 code = "LikeButtonNoJavaFX.java";
                 break;
+            case "ttt1":
+                TicTacToe1.onPageLoad();
+                code = "TicTacToe1.java";
+                break;
             default:
                 LikeButton.onPageLoad();
                 code = "LikeButton.java";

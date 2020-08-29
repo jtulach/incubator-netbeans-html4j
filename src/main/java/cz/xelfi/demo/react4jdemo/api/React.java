@@ -167,6 +167,7 @@ public class React {
 
     public static abstract class Component<State> {
         private final Props props;
+        private boolean stateInitialized;
         private State state;
 
         protected Component(Props props) {
@@ -184,8 +185,9 @@ public class React {
         }
 
         protected final void setState(State model) {
-            if (this.state == null) {
+            if (!stateInitialized) {
                 this.state = model;
+                this.stateInitialized = true;
                 return;
             }
             this.state = model;

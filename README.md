@@ -10,8 +10,8 @@ Clone the repository and invoke `gradlew` to play with the demo yourself:
 ```bash
 $ git clone --single-branch --branch react4jdemo https://github.com/jtulach/netbeans-html4j react4jdemo
 $ cd react4jdemo
-react4jdemo$ JAVA_HOME=/jdk-11 ./gradlew bck2brwsrShow
+react4jdemo$ JAVA_HOME=/jdk-11 ./gradlew bck2brwsrShow
 ```
 
 Modify the HTML files in `src/main/webapp/pages/` and the Java files
-in `src/main/java/` and repeat `./gradlew bck2brwsrShow` to see the changes.
+in `src/main/java/` and repeat `./gradlew bck2brwsrShow` to see the changes.

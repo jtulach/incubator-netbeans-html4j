@@ -40,6 +40,10 @@ public final class OnPageLoad {
                 TicTacToe1.onPageLoad();
                 code = "TicTacToe1.java";
                 break;
+            case "ttt2":
+                TicTacToe2.onPageLoad();
+                code = "TicTacToe2.java";
+                break;
             default:
                 LikeButton.onPageLoad();
                 code = "LikeButton.java";

@@ -21,30 +21,29 @@ package cz.xelfi.demo.react4jdemo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
 
-public class TicTacToe1 {
+public class TicTacToe2 {
 
     private static Object cSquare;
     private static Object cBoard;
     private static Object cGame;
 
-    private TicTacToe1() {
+    private TicTacToe2() {
     }
 
-    static class Square extends React.Component<Square> {
+    static class Square extends React.Component<Character> {
         final String className = "square";
 
         Square(React.Props props) {
             super(props);
+            setState(null);
         }
 
         @Override
         protected Object render() {
             return React.createElement(
                 "button", JsUtils.onButton("square", () -> {
-                    final String msg = "Clicked " + getProperty("value");
-                    System.err.println(msg);
-                    JsUtils.alert(msg);
-                }), this.getProperty("value")
+                    setState('X');
+                }), state() == null ? null : state().toString()
             );
         }
     }

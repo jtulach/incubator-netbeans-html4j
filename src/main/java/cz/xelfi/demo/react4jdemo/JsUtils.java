@@ -28,15 +28,17 @@ final class JsUtils {
     @JavaScriptBody(args = { "msg" }, body = "alert(msg);")
     public static native void alert(String msg);
     
-    public static OnButton onButton(Runnable action) {
-        return new OnButton(action);
+    public static OnButton onButton(String className, Runnable action) {
+        return new OnButton(className, action);
     }
     
     @FXBeanInfo.Generate
     static final class OnButton extends OnButtonBase {
+        final String className;
         private final Runnable action;
 
-        private OnButton(Runnable action) {
+        private OnButton(String className, Runnable action) {
+            this.className = className;
             this.action = action;
         }
         

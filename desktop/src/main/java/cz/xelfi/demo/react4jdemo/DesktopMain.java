@@ -24,7 +24,10 @@ final class DesktopMain {
     public static void main(String[] args) {
         String page = args.length == 0 ? "index.html" : args[0];
         BrowserBuilder.newBrowser().loadPage("pages/" + page)
-                .loadFinished(OnPageLoad::main)
+                .loadFinished(() -> {
+                    String prefix = page.substring(0, page.length() - 5);
+                    OnPageLoad.main(prefix);
+                })
                 .showAndWait();
         System.exit(0);
     }

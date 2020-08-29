@@ -19,6 +19,7 @@
 package cz.xelfi.demo.react4jdemo;
 
 import cz.xelfi.demo.react4jdemo.api.React;
+import cz.xelfi.demo.react4jdemo.api.React.Element;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
 
 public class TicTacToe1 {
@@ -38,13 +39,13 @@ public class TicTacToe1 {
         }
 
         @Override
-        protected Object render() {
+        protected Element render() {
             return React.createElement(
                 "button", JsUtils.onButton("square", () -> {
                     final String msg = "Clicked " + getProperty("value");
                     System.err.println(msg);
                     JsUtils.alert(msg);
-                }), this.getProperty("value")
+                }), React.createText((String) this.getProperty("value"))
             );
         }
     }
@@ -55,13 +56,13 @@ public class TicTacToe1 {
             super(props);
         }
 
-        private Object renderSquare(int i) {
+        private Element renderSquare(int i) {
             return React.createElement(cSquare, props("value", "" + i));
         }
 
         @Override
-        protected Object render() {
-            final String status = "Next player: X";
+        protected Element render() {
+            final Element status = React.createText("Next player: X");
 
             return React.createElement("div", null,
                     React.createElement("div", props("className", "status"), status),
@@ -85,12 +86,14 @@ public class TicTacToe1 {
     }
 
     static class Game extends React.Component {
-
+        private static Game G;
         public Game(React.Props props) {
             super(props);
+            G = this;
         }
 
-        protected Object render() {
+        @Override
+        protected Element render() {
             return React.createElement("div", props("className", "game"),
                     React.createElement("div", props("className", "game-board"),
                             React.createElement(cBoard, null)

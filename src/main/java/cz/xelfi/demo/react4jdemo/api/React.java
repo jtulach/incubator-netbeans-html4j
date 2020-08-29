@@ -32,7 +32,25 @@ public class React {
         DOM.initialize();
     }
 
-    public static Object createElement(Object type, Object attrs, Object... children) {
+    public static final class Element {
+        private final Object js;
+        private final Object[] children;
+        private final Object attrs;
+        private final Object type;
+
+        Element(Object js, Object type, Object attrs, Object[] children) {
+            this.js = js;
+            this.type = type;
+            this.attrs = attrs;
+            this.children = children;
+        }
+    }
+
+    public static Element createText(String text) {
+        return new Element(text, null, null, null);
+    }
+    
+    public static Element createElement(Object type, Object attrs, Element... children) {
         DOM.initialize();
         Object rawModel = null;
         if (attrs == null) {
@@ -42,7 +60,12 @@ public class React {
         } else if (attrs instanceof Props) {
             rawModel = ((Props) attrs).js;
         }
-        return createElement0(type, rawModel, children);
+        Object[] rawChilden = new Object[children.length];
+        for (int i = 0; i < rawChilden.length; i++) {
+            rawChilden[i] = children[i].js;
+        }
+        Object js = createElement0(type, rawModel, rawChilden);
+        return new Element(js, type, attrs, children);
     }
 
     @JavaScriptBody(args = { "type", "model", "children" }, body =
@@ -85,8 +108,10 @@ public class React {
         render0(null, jsClass, id);
     }
 
-    public static void render(Object reactElement, String id) {
-        render0(reactElement, null, id);
+    private static final Map<String,Element> APPLIED = new HashMap<>();
+    public static void render(Element reactElement, String id) {
+        APPLIED.put(id, reactElement);
+        render0(reactElement.js, null, id);
     }
 
     @JavaScriptBody(args = { "reactElem", "clazz", "id" }, body = "" +
@@ -114,7 +139,7 @@ public class React {
 
     static Object render(Object rawComponent) {
         Component<?> component = (Component<?>) rawComponent;
-        return component.render();
+        return component.doRender();
     }
 
     public interface ComponentFactory {
@@ -174,7 +199,7 @@ public class React {
             this.props = props;
         }
 
-        protected abstract Object render();
+        protected abstract Element render();
 
         protected final State state() {
             return this.state;
@@ -196,6 +221,13 @@ public class React {
 
         protected final void forceUpdate() {
             React.forceUpdate(props.thiz);
+        }
+
+        private Element lastRender;
+        private final Object doRender() {
+            Element e = render();
+            lastRender = e;
+            return e.js;
         }
     }
 

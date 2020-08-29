@@ -19,6 +19,7 @@
 package cz.xelfi.demo.react4jdemo;
 
 import cz.xelfi.demo.react4jdemo.api.React;
+import cz.xelfi.demo.react4jdemo.api.React.Element;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -72,10 +73,10 @@ final class CodeComponent extends React.Component<LoadingUrl> {
     }
 
     @Override
-    protected Object render() {
-        Object content;
+    protected Element render() {
+        Element content;
         if (state().getCode() == null) {
-            content = React.createElement("div", null, "Loading " + state().getUrl());
+            content = React.createElement("div", null, React.createText("Loading " + state().getUrl()));
         } else {
             content = boldJavaKeywords(state().getCode(), Collections.emptyMap(), Collections.emptySet());
         }
@@ -84,7 +85,7 @@ final class CodeComponent extends React.Component<LoadingUrl> {
                 React.createElement("tr", null,
                     React.createElement("td", React.props("align", "center"),
                         React.createElement("a", React.props("target", "_blank", "href", VIEW + state().getName()),
-                            state().getName()
+                            React.createText(state().getName())
                         )
                     )
                 )
@@ -100,7 +101,7 @@ final class CodeComponent extends React.Component<LoadingUrl> {
     static void loadCode(String code) {
         try {
             URL url = new URL(new URL(homePageUrl()), code);
-            Object codeComponent = React.createElement(CLAZZ, new LoadingUrl().
+            Element codeComponent = React.createElement(CLAZZ, new LoadingUrl().
                 withUrl(url.toExternalForm()).
                 withName(code)
             );
@@ -110,17 +111,17 @@ final class CodeComponent extends React.Component<LoadingUrl> {
         }
     }
     private static final Pattern WORDS = Pattern.compile("(\\w+)|(//.*)\n|(\"[^\"]*\")");
-    static Object boldJavaKeywords(String text, Map<String,String> imports, Set<String> packages) {
-        List<Object> children = new ArrayList<>();
+    static Element boldJavaKeywords(String text, Map<String,String> imports, Set<String> packages) {
+        List<Element> children = new ArrayList<>();
         int prev = 0;
         Matcher m = WORDS.matcher(text);
         while (m.find()) {
             if (m.start() > prev) {
-                children.add(text.substring(prev, m.start()));
+                children.add(React.createText(text.substring(prev, m.start())));
             }
             prev = m.end();
 
-            Object append;
+            Element append;
             switch (m.group(0)) {
                 case "abstract":
                 case "assert":
@@ -175,15 +176,15 @@ final class CodeComponent extends React.Component<LoadingUrl> {
                 case "true":
                 case "false":
                 case "null":
-                    append = React.createElement("b", null, m.group(0));
+                    append = React.createElement("b", null, React.createText(m.group(0)));
                     break;
                 default:
                     if (m.group(0).startsWith("//")) {
-                        append = React.createElement("em", null, m.group(0).substring(0, m.group(0).length() - 1));
+                        append = React.createElement("em", null, React.createText(m.group(0).substring(0, m.group(0).length() - 1)));
                         break;
                     }
                     if (m.group(0).startsWith("\"")) {
-                        append = React.createElement("em", null, m.group(0));
+                        append = React.createElement("em", null, React.createText(m.group(0)));
                         break;
                     }
                     String fqn;
@@ -200,17 +201,17 @@ final class CodeComponent extends React.Component<LoadingUrl> {
                         }
                     }
                     if (fqn == null) {
-                        append = m.group(0);
+                        append = React.createText(m.group(0));
                     } else {
-                        append = "{@link " + fqn + "}";
+                        append = React.createText("{@link " + fqn + "}");
                     }
             }
             children.add(append);
         }
         if (prev < text.length()) {
-            children.add(text.substring(prev));
+            children.add(React.createText(text.substring(prev)));
         }
-        return React.createElement("pre", null, children.toArray());
+        return React.createElement("pre", null, children.toArray(new Element[0]));
     }
 
     private static String tryLoad(String pkg, String name) {

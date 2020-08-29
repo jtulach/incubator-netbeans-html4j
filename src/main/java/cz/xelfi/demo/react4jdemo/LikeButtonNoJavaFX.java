@@ -19,6 +19,7 @@
 package cz.xelfi.demo.react4jdemo;
 
 import cz.xelfi.demo.react4jdemo.api.React;
+import cz.xelfi.demo.react4jdemo.api.React.Element;
 import cz.xelfi.demo.react4jdemo.api.React.Props;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
 import net.java.html.json.Function;
@@ -55,18 +56,18 @@ public final class LikeButtonNoJavaFX extends React.Component<LikeState>  {
     }
 
     @Override
-    protected Object render() {
+    protected Element render() {
         if (this.state().isLiked()) {
             return React.createElement("div", null,
-                "You like React for Java! Continue to the ",
-                React.createElement("a", props("href", "ttt1.html"), "tutorial"),
-                "..."
+                React.createText("You like React for Java! Continue to the "),
+                React.createElement("a", props("href", "ttt1.html"), React.createText("tutorial")),
+                React.createText("...")
             );
         }
         final ButtonState buttonState = new ButtonState();
         buttonState.connect(this);
 
-        return React.createElement("button", buttonState, "Like");
+        return React.createElement("button", buttonState, React.createText("Like"));
     }
 
     public static void onPageLoad() {

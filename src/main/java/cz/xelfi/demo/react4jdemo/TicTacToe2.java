@@ -19,6 +19,7 @@
 package cz.xelfi.demo.react4jdemo;
 
 import cz.xelfi.demo.react4jdemo.api.React;
+import cz.xelfi.demo.react4jdemo.api.React.Element;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
 
 public class TicTacToe2 {
@@ -39,11 +40,11 @@ public class TicTacToe2 {
         }
 
         @Override
-        protected Object render() {
+        protected React.Element render() {
             return React.createElement(
                 "button", JsUtils.onButton("square", () -> {
                     setState('X');
-                }), state() == null ? null : state().toString()
+                }), React.createText(state() == null ? null : state().toString())
             );
         }
     }
@@ -54,13 +55,13 @@ public class TicTacToe2 {
             super(props);
         }
 
-        private Object renderSquare(int i) {
+        private Element renderSquare(int i) {
             return React.createElement(cSquare, props("value", "" + i));
         }
 
         @Override
-        protected Object render() {
-            final String status = "Next player: X";
+        protected Element render() {
+            final Element status = React.createText("Next player: X");
 
             return React.createElement("div", null,
                     React.createElement("div", props("className", "status"), status),
@@ -89,7 +90,7 @@ public class TicTacToe2 {
             super(props);
         }
 
-        protected Object render() {
+        protected Element render() {
             return React.createElement("div", props("className", "game"),
                     React.createElement("div", props("className", "game-board"),
                             React.createElement(cBoard, null)

@@ -31,7 +31,6 @@ public class TicTacToe1 {
     private TicTacToe1() {
     }
 
-    @FXBeanInfo.Generate
     static class Square extends React.Component<Square> {
         final String className = "square";
 
@@ -42,15 +41,18 @@ public class TicTacToe1 {
         @Override
         protected Object render() {
             return React.createElement(
-                "button", this,
+                "button", new OnButtonHandler(),
                 this.getProperty("value")
             );
         }
 
-
-
-        void onClick() {
-            System.err.println("clicked!");
+        @FXBeanInfo.Generate
+        class OnButtonHandler extends OnSquareButtonBase {
+            void onClick() {
+                final String msg = "Clicked " + getProperty("value");
+                System.err.println(msg);
+                JsUtils.alert(msg);
+            }
         }
     }
 
@@ -68,7 +70,7 @@ public class TicTacToe1 {
             final String status = "Next player: X";
 
             return React.createElement("div", null,
-                    React.createElement("div", props("className", "status", status)),
+                    React.createElement("div", props("className", "status"), status),
                     React.createElement("div", props("className", "board-row"),
                             renderSquare(0),
                             renderSquare(1),

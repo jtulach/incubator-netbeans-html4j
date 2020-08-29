@@ -18,7 +18,6 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
-import com.dukescript.api.javafx.beans.FXBeanInfo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
 
@@ -41,18 +40,12 @@ public class TicTacToe1 {
         @Override
         protected Object render() {
             return React.createElement(
-                "button", new OnButtonHandler(),
-                this.getProperty("value")
+                "button", JsUtils.onButton(() -> {
+                    final String msg = "Clicked " + getProperty("value");
+                    System.err.println(msg);
+                    JsUtils.alert(msg);
+                }), this.getProperty("value")
             );
-        }
-
-        @FXBeanInfo.Generate
-        class OnButtonHandler extends OnSquareButtonBase {
-            void onClick() {
-                final String msg = "Clicked " + getProperty("value");
-                System.err.println(msg);
-                JsUtils.alert(msg);
-            }
         }
     }
 

@@ -18,6 +18,7 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
+import com.dukescript.api.javafx.beans.FXBeanInfo;
 import net.java.html.js.JavaScriptBody;
 
 final class JsUtils {
@@ -26,4 +27,21 @@ final class JsUtils {
     
     @JavaScriptBody(args = { "msg" }, body = "alert(msg);")
     public static native void alert(String msg);
+    
+    public static OnButton onButton(Runnable action) {
+        return new OnButton(action);
+    }
+    
+    @FXBeanInfo.Generate
+    static final class OnButton extends OnButtonBase {
+        private final Runnable action;
+
+        private OnButton(Runnable action) {
+            this.action = action;
+        }
+        
+        void onClick() {
+            action.run();
+        }
+    }
 }

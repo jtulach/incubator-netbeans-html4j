@@ -98,32 +98,62 @@ public class TicTacToe3 {
             setState(new BoardState(arr, !state().xIsNext));
         }
 
-        private Element renderSquare(int i) {
+        private Element renderSquare(boolean gameOver, int i) {
             final Character ith = state().squares.get(i);
-            final Runnable ithClick = ith != null ? null : () -> { handleClick(i); };
+            final Runnable ithClick = gameOver || ith != null ? null : () -> { handleClick(i); };
             return React.createElement(cSquare, new SquareProps(ith == null ? null : "" + ith, ithClick));
+        }
+
+        private static final int[][] winningLines = new int[][]{
+            {0, 1, 2},
+            {3, 4, 5},
+            {6, 7, 8},
+            {0, 3, 6},
+            {1, 4, 7},
+            {2, 5, 8},
+            {0, 4, 8},
+            {2, 4, 6},};
+
+        private static Character calculateWinner(List<Character> squares) {
+            for (int i = 0; i < winningLines.length; i++) {
+                int[] line = winningLines[i];
+                Character ch0 = squares.get(line[0]);
+                Character ch1 = squares.get(line[1]);
+                Character ch2 = squares.get(line[2]);
+                if (ch0 != null && ch0.equals(ch1) && ch1.equals(ch2)) {
+                    return ch0;
+                }
+            }
+            return null;
         }
 
         @Override
         protected Element render() {
-            final Element status = React.createText("Next player: " + (state().xIsNext ? 'X' : 'O'));
+            final Character winner = calculateWinner(state().squares);
+            final boolean gameOver = winner != null;
+            final Element status;
+            if (winner == null) {
+                status = React.createText("Next player: " + (state().xIsNext ? 'X' : 'O'));
+            } else {
+                status = React.createText("Winner " + winner);
+            }
 
             return React.createElement("div", null,
                     React.createElement("div", props("className", "status"), status),
                     React.createElement("div", props("className", "board-row"),
-                            renderSquare(0),
-                            renderSquare(1),
-                            renderSquare(2)
+                            renderSquare(gameOver, 0),
+                            renderSquare(gameOver, 1),
+                            renderSquare(gameOver, 2)
                     ),
                     React.createElement("div", props("className", "board-row"),
-                            renderSquare(3),
-                            renderSquare(4),
-                            renderSquare(5)
+                            renderSquare(gameOver, 3),
+                            renderSquare(gameOver, 4),
+                            renderSquare(gameOver, 5)
                     ),
                     React.createElement("div", props("className", "board-row"),
-                            renderSquare(6),
-                            renderSquare(7),
-                            renderSquare(8)
+                            renderSquare(gameOver, 6),
+                            renderSquare(gameOver, 7),
+                            renderSquare(gameOver, 8)
                     )
             );
         }

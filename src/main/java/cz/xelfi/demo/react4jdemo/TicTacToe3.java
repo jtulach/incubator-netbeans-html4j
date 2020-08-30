@@ -82,7 +82,9 @@ public class TicTacToe3 {
 
             final void onClick() {
                 JsUtils.debugger();
-                onClick.run();
+                if (onClick != null) {
+                    onClick.run();
+                }
             }
         }
 
@@ -98,7 +100,7 @@ public class TicTacToe3 {
 
         private Element renderSquare(int i) {
             final Character ith = state().squares.get(i);
-            final Runnable ithClick = () -> { handleClick(i); };
+            final Runnable ithClick = ith != null ? null : () -> { handleClick(i); };
             return React.createElement(cSquare, new SquareProps(ith == null ? null : "" + ith, ithClick));
         }
 

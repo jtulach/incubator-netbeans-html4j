@@ -51,12 +51,23 @@ public class TicTacToe3 {
         }
     }
 
-    static class Board extends React.Component<List<Character>> {
+    @FXBeanInfo.Generate
+    static class BoardState extends BoardBase3 {
+        final List<Character> squares;
+        final boolean xIsNext;
+
+        BoardState(List<Character> squares, boolean xIsNext) {
+            this.squares = squares;
+            this.xIsNext = xIsNext;
+        }
+    }
+
+    static class Board extends React.Component<BoardState> {
 
         Board(React.Props props) {
             super(props);
             final List<Character> nine = Collections.nCopies(9, null);
-            setState(nine);
+            setState(new BoardState(nine, true));
         }
 
         @FXBeanInfo.Generate
@@ -76,22 +87,24 @@ public class TicTacToe3 {
         }
 
         private void handleClick(int i) {
-            List<Character> arr = new ArrayList<>(state());
-            arr.set(i, 'X');
-            setState(arr);
+            List<Character> arr = new ArrayList<>(state().squares);
+            if (state().xIsNext) {
+                arr.set(i, 'X');
+            } else {
+                arr.set(i, 'O');
+            }
+            setState(new BoardState(arr, !state().xIsNext));
         }
 
         private Element renderSquare(int i) {
-            final Character ith = state().get(i);
-            System.err.println("it: " + ith);
+            final Character ith = state().squares.get(i);
             final Runnable ithClick = () -> { handleClick(i); };
-            System.err.println("ithClick: " + ithClick);
             return React.createElement(cSquare, new SquareProps(ith == null ? null : "" + ith, ithClick));
         }
 
         @Override
         protected Element render() {
-            final Element status = React.createText("Next player: X");
+            final Element status = React.createText("Next player: " + (state().xIsNext ? 'X' : 'O'));
 
             return React.createElement("div", null,
                     React.createElement("div", props("className", "status"), status),

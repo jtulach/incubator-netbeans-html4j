@@ -44,13 +44,6 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         setState(new LikeState(true));
     }
 
-    @FXBeanInfo.Generate
-    class ButtonState extends ButtonStateBeanInfo {
-        void onClick() {
-            doLike();
-        }
-    }
-
     @Override
     protected Element render() {
         if (this.state().liked) {
@@ -63,7 +56,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
 
         return React.createElement(
           "button",
-          new ButtonState(),
+          JsUtils.onButton("", this::doLike),
           React.createText("Like")
         );
     }

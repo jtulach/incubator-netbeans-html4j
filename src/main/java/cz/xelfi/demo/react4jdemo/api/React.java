@@ -100,6 +100,7 @@ public class React {
         "")
     private static native Object register0(String name, ComponentFactory factory);
 
+    private static final Map<String,Object> RENDERED = new HashMap<>();
     public static void render(String name, String id) {
         Object jsClass = FACTORIES.get(name);
         if (jsClass == null) {
@@ -134,7 +135,13 @@ public class React {
     static Object[] factory(Object jsThis, Object props, Object rawFactory) {
         ComponentFactory factory = (ComponentFactory) rawFactory;
         Component<?> component = factory.create(new Props(jsThis, props));
-        return new Object[] { component, Models.toRaw(component.state()) };
+        final Object rawState;
+        if (component.state == null || !Models.isModel(component.state().getClass())) {
+            rawState = component.state();
+        } else {
+            rawState = Models.toRaw(component.state());
+        }
+        return new Object[] { component, rawState};
     }
 
     static Object render(Object rawComponent) {
@@ -182,9 +189,6 @@ public class React {
 
         @JavaScriptBody(args = { "obj", "prop" }, body = ""
                 + "let val = obj[prop];\n"
-                + "if (typeof val === 'function') {\n"
-                + "  val = val();\n"
-                + "}\n"
                 + "return val;\n"
         )
         private static native Object readProperty(Object obj, String prop);

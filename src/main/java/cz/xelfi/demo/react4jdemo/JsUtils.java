@@ -28,6 +28,10 @@ final class JsUtils {
     @JavaScriptBody(args = { "msg" }, body = "alert(msg);")
     public static native void alert(String msg);
     
+
+    @JavaScriptBody(args = {}, body = "debugger;")
+    public static native void debugger();
+
     public static OnButton onButton(String className, Runnable action) {
         return new OnButton(className, action);
     }

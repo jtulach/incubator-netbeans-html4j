@@ -22,17 +22,45 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>React for Java - Get the Code</title>
+    <title>React for Java Tic Tac Toe</title>
     <link rel="stylesheet" type="text/css" href="style.css">
     <link rel="stylesheet" type="text/css" href="ttt.css">
   </head>
   <body>
 
-    <h2>Get the Code!</h2>
+    <h2>Tic Tac Toe 3</h2>
 
-    Start the tutorial <a href="index.html">again</a> or follow the 
-    <a target="_blank" href="https://github.com/jtulach/netbeans-html4j/blob/react4jdemo/README.md">README</a>
-    to play with the code yourself!
+    <div id="root"></div>
+
+    <script src='bck2brwsr.js'></script>
+    <script>
+    var vm = bck2brwsr('main.js');
+    vm.loadClass('cz.xelfi.demo.react4jdemo.BrowserMain', function(mainClass) {
+      mainClass.invoke('main', [ 'ttt3' ]);
+    });
+    </script>
+
+
+    <h2>What is this?</h2>
+
+    <p>
+    This is a rewrite of React.js <a target="_blank" href="https://reactjs.org/tutorial/tutorial.html">Tic Tac Toe tutorial</a> 
+    controlled by application written in JavaFX Light and
+    <a target="_blank" href="http://github.com/jtulach/bck2brwsr">transpiled to JavaScript</a>.
+    </p>
+
+    <h2>Action</h2>
+    <p>
+    Click on any square to change its state to <b>X</b>. However this time
+    the <code>Square</code> notifies the <code>Board</code> of an <code>onClick</code>
+    event and let's the <code>Board</code> change its state (<code>List&lt;Character&gt;</code>)
+    and re-render the whole board.
+    </p>
+    <p>
+    Continue to <a href="ttt4.html">next level</a>...
+    </p>
+
+    <div id="codecontainer"></div>
 </body>
 </html>
 

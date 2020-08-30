@@ -49,7 +49,7 @@ public class React {
     public static Element createText(String text) {
         return new Element(text, null, null, null);
     }
-    
+
     public static Element createElement(Object type, Object attrs, Element... children) {
         DOM.initialize();
         Object rawModel = null;
@@ -184,14 +184,31 @@ public class React {
         }
 
         public Object get(String name) {
-            return readProperty(js, name);
+            return readProperty(thiz, js, name);
         }
 
-        @JavaScriptBody(args = { "obj", "prop" }, body = ""
+        @JavaScriptBody(args = { "thiz", "obj", "prop" }, body = ""
+                + "debugger;\n"
+                + "if (thiz) obj = thiz.props;\n"
                 + "let val = obj[prop];\n"
                 + "return val;\n"
         )
-        private static native Object readProperty(Object obj, String prop);
+        private static native Object readProperty(Object thiz, Object obj, String prop);
+
+        @JavaScriptBody(args = { "thiz", "obj", "prop", "ev", "param" }, body = ""
+                + "if (thiz) obj = thiz.props;\n"
+                + "let fn = obj[prop];\n"
+                + "if (typeof fn === 'function') {\n"
+                + "  fn(ev, param);\n"
+                + "} else {\n"
+                + "  throw 'Expected function ' + fn;\n"
+                + "}\n"
+        )
+        private static native Object callProperty(Object thiz, Object obj, String prop, Object ev, Object param);
+
+        public void on(String name, Object ev, Object param) {
+            callProperty(thiz, js, name, ev, param);
+        }
     }
 
     public static abstract class Component<State> {
@@ -211,6 +228,14 @@ public class React {
 
         protected final Object getProperty(String name) {
             return this.props.get(name);
+        }
+
+        protected final void onEvent(String name) {
+            onEvent(name, null, null);
+        }
+
+        protected final void onEvent(String name, Object ev, Object param) {
+            this.props.on(name, ev, param);
         }
 
         protected final void setState(State model) {

@@ -76,6 +76,7 @@ final class ReactTech implements Technology.BatchInit<Object> {
         String[] funcNames = new String[funcArr.length];
         for (int i = 0; i < funcNames.length; i++) {
             funcNames[i] = funcArr[i].getFunctionName();
+            funcArr[i] = funcArr[i].weak();
         }
         Object js = defineJs(propNames, propValues, funcNames, funcArr);
         return js;

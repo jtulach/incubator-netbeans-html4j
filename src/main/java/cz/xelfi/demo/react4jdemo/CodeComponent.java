@@ -98,16 +98,16 @@ final class CodeComponent extends React.Component<LoadingUrl> {
     @JavaScriptBody(args = {  }, body = "return window.location.href;")
     private static native String homePageUrl();
 
-    static void loadCode(String code) {
+    static React.Component<?> loadCode(String code) {
         try {
             URL url = new URL(new URL(homePageUrl()), code);
             Element codeComponent = React.createElement(CLAZZ, new LoadingUrl().
                 withUrl(url.toExternalForm()).
                 withName(code)
             );
-            React.render(codeComponent, "codecontainer");
+            return React.render(codeComponent, "codecontainer");
         } catch (MalformedURLException ex) {
-            ex.printStackTrace();
+            throw new IllegalStateException(ex);
         }
     }
     private static final Pattern WORDS = Pattern.compile("(\\w+)|(//.*)\n|(\"[^\"]*\")");

@@ -100,19 +100,18 @@ public class React {
         "")
     private static native Object register0(String name, ComponentFactory factory);
 
-    private static final Map<String,Object> RENDERED = new HashMap<>();
-    public static void render(String name, String id) {
+    public static Component<?> render(String name, String id) {
         Object jsClass = FACTORIES.get(name);
         if (jsClass == null) {
             jsClass = name;
         }
-        render0(null, jsClass, id);
+        Component<?> component = render0(null, jsClass, id);
+        return component;
     }
 
-    private static final Map<String,Element> APPLIED = new HashMap<>();
-    public static void render(Element reactElement, String id) {
-        APPLIED.put(id, reactElement);
-        render0(reactElement.js, null, id);
+    public static Component<?> render(Element reactElement, String id) {
+        Component<?> component = render0(reactElement.js, null, id);
+        return component;
     }
 
     @JavaScriptBody(args = { "reactElem", "clazz", "id" }, body = "" +
@@ -121,10 +120,11 @@ public class React {
         "if (!reactElem) {\n" +
         "  reactElem = React.createElement(clazz);\n" +
         "}\n" +
-        "ReactDOM.render(reactElem, elem);\n" +
+        "let component = ReactDOM.render(reactElem, elem);\n" +
+        "return component.java ? component.java : null;\n" +
         "\n"
     )
-    private static native void render0(Object reactElem, Object clazz, String id);
+    private static native React.Component<?> render0(Object reactElem, Object clazz, String id);
 
     @JavaScriptBody(args = { "comp" }, body = "" +
         "comp.forceUpdate();\n" +

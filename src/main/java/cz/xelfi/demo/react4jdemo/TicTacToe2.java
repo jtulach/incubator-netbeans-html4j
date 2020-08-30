@@ -103,11 +103,12 @@ public class TicTacToe2 {
         }
     }
 
+    private static React.Component<?> root;
     public static void onPageLoad() {
         cSquare = React.register("Square", Square::new);
         cBoard = React.register("Board", Board::new);
         cGame = React.register("Game", Game::new);
-        React.render("Game", "root");
+        root = React.render("Game", "root");
     }
 
 }

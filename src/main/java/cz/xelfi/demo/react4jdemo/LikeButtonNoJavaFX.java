@@ -70,8 +70,9 @@ public final class LikeButtonNoJavaFX extends React.Component<LikeState>  {
         return React.createElement("button", buttonState, React.createText("Like"));
     }
 
+    private static React.Component<?> root;
     public static void onPageLoad() {
         React.register("LikeButton", LikeButtonNoJavaFX::new);
-        React.render("LikeButton", "like_button_container");
+        root = React.render("LikeButton", "like_button_container");
     }
 }

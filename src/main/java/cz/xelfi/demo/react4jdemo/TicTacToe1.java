@@ -104,7 +104,7 @@ public class TicTacToe1 {
         }
     }
 
-    private static React.Component<?> root;
+    private static AutoCloseable root;
     public static void onPageLoad() {
         cSquare = React.register("Square", Square::new);
         cBoard = React.register("Board", Board::new);

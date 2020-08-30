@@ -18,10 +18,8 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
-import cz.xelfi.demo.react4jdemo.api.React;
-
 public final class OnPageLoad {
-    private static React.Component<?> root;
+    private static AutoCloseable root;
 
     private OnPageLoad() {
     }

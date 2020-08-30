@@ -61,7 +61,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         );
     }
 
-    private static React.Component<?> root;
+    private static AutoCloseable root;
     public static void onPageLoad() {
         React.register("LikeButton", LikeButton::new);
         root = React.render("LikeButton", "like_button_container");

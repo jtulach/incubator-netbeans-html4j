@@ -100,18 +100,18 @@ public class React {
         "")
     private static native Object register0(String name, ComponentFactory factory);
 
-    public static Component<?> render(String name, String id) {
+    public static AutoCloseable render(String name, String id) {
         Object jsClass = FACTORIES.get(name);
         if (jsClass == null) {
             jsClass = name;
         }
         Component<?> component = render0(null, jsClass, id);
-        return component;
+        return ComponentHandle.register(component, id);
     }
 
-    public static Component<?> render(Element reactElement, String id) {
+    public static AutoCloseable render(Element reactElement, String id) {
         Component<?> component = render0(reactElement.js, null, id);
-        return component;
+        return ComponentHandle.register(component, id);
     }
 
     @JavaScriptBody(args = { "reactElem", "clazz", "id" }, body = "" +
@@ -125,6 +125,14 @@ public class React {
         "\n"
     )
     private static native React.Component<?> render0(Object reactElem, Object clazz, String id);
+
+    @JavaScriptBody(args = {"id"}, body = ""
+            + "let elem = document.getElementById(id);\n"
+            + "if (!elem) return;\n"
+            + "React.unmountComponentAtNode(elem);\n"
+            + "\n"
+    )
+    static native void unmountComponentAtID(String id);
 
     @JavaScriptBody(args = { "comp" }, body = "" +
         "comp.forceUpdate();\n" +
@@ -256,6 +264,7 @@ public class React {
         private final Object doRender() {
             Element e = render();
             lastRender = e;
+            ComponentHandle.clean();
             return e.js;
         }
     }

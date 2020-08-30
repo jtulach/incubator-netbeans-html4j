@@ -98,7 +98,7 @@ final class CodeComponent extends React.Component<LoadingUrl> {
     @JavaScriptBody(args = {  }, body = "return window.location.href;")
     private static native String homePageUrl();
 
-    static React.Component<?> loadCode(String code) {
+    static AutoCloseable loadCode(String code) {
         try {
             URL url = new URL(new URL(homePageUrl()), code);
             Element codeComponent = React.createElement(CLAZZ, new LoadingUrl().

@@ -12,6 +12,12 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'bck2brwsr'
 
+
+
+java {
+   disableAutoTargetJvm()
+}
+
 targetCompatibility = '1.8'
 sourceCompatibility = '1.8'
 

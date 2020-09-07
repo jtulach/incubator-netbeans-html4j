@@ -10,20 +10,27 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'html4j'
 
-def commonProject = project.parent
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
 dependencies {
     compile "org.netbeans.html:net.java.html.json:1.7"
     compile "org.netbeans.html:net.java.html.boot:1.7"
     compile "com.dukescript.api:javafx.base:8.60.11"
     compile "com.dukescript.api:javafx.beaninfo:0.6"
     compileOnly "org.netbeans.api:org-openide-util-lookup:RELEASE120-u1"
+    annotationProcessor "org.netbeans.html:net.java.html.boot:1.7"
+    annotationProcessor "org.netbeans.html:net.java.html.json:1.7"
     annotationProcessor "org.netbeans.api:org-openide-util-lookup:RELEASE120-u1"
     testCompile "com.dukescript.api:junit-browser-runner:1.0"
-    testCompile files("build/classes")
     testRuntime "org.netbeans.html:net.java.html.boot.fx:1.7"
     testAnnotationProcessor files("build/classes/java/main/")
 }
 
 task copyReactResources(type: Copy) {
-    from 'src/main/resources' into 'build/classes/main/';
+    from 'src/main/resources' into 'build/classes/java/main/';
 }
+
+compileJava.dependsOn(copyReactResources);

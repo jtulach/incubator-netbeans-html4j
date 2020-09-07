@@ -15,6 +15,10 @@ plugins {
 apply plugin: 'java'
 apply plugin: 'html4j'
 
+java {
+   disableAutoTargetJvm()
+}
+
 group 'cz.xelfi.demo'
 
 allprojects {
@@ -24,8 +28,8 @@ allprojects {
     
     task checkJavaVersion {
         doLast {
-            if (!System.getProperty("java.version").startsWith("1.8")) {
-                throw new IllegalStateException("Please use JDK 1.8, that one is known to work with Gradle as well as libraries and plugins!");
+            if (!System.getProperty("java.version").startsWith("11")) {
+                throw new IllegalStateException("Please use JDK 11, that one is known to work with Gradle as well as libraries and plugins!");
             }
         }
     }

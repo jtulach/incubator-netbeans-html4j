@@ -15,17 +15,17 @@ plugins {
 apply plugin: 'java'
 apply plugin: 'html4j'
 
-group 'com.dukescript.demo'
+group 'cz.xelfi.demo'
 
 allprojects {
     repositories {
         mavenCentral()
     }
-
+    
     task checkJavaVersion {
         doLast {
-            if (!System.getProperty("java.version").startsWith("11")) {
-                throw new IllegalStateException("Please use JDK11, that one is known to work with Gradle as well as libraries and plugins!");
+            if (!System.getProperty("java.version").startsWith("1.8")) {
+                throw new IllegalStateException("Please use JDK 1.8, that one is known to work with Gradle as well as libraries and plugins!");
             }
         }
     }
@@ -37,8 +37,9 @@ targetCompatibility = '1.8'
 sourceCompatibility = '1.8'
 
 dependencies {
-    compile "org.netbeans.html:net.java.html.json:1.7"
+    compile project(":api")
     compile "org.netbeans.html:net.java.html.boot:1.7"
+    compile "org.netbeans.html:net.java.html.json:1.7"
     compile "com.dukescript.api:javafx.base:8.60.11"
     compile "com.dukescript.api:javafx.beaninfo:0.6"
     compileOnly "org.netbeans.api:org-openide-util-lookup:RELEASE120-u1"

@@ -20,11 +20,11 @@
 package cz.xelfi.demo.react4jdemo.javasx;
 
 import cz.xelfi.demo.react4jdemo.api.GenerateReact;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,10 +33,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
@@ -49,13 +47,21 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
-import javax.tools.StandardLocation;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import org.openide.util.lookup.ServiceProvider;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
+import org.xml.sax.SAXException;
 
 @ServiceProvider(service = Processor.class)
 public class JavaSxProcessor extends AbstractProcessor {
-
-    public @Override Set<String> getSupportedAnnotationTypes() {
+    @Override 
+    public Set<String> getSupportedAnnotationTypes() {
         Set<String> names = new HashSet<>();
         names.add(GenerateReact.class.getCanonicalName());
         names.add(GenerateReact.Group.class.getCanonicalName());
@@ -70,6 +76,13 @@ public class JavaSxProcessor extends AbstractProcessor {
     public @Override boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver()) {
             return false;
+        }
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder;
+        try {
+            builder = dbf.newDocumentBuilder();
+        } catch (ParserConfigurationException ex) {
+            throw new IllegalStateException(ex);
         }
         Map</*package*/String,Set<Element>> annotatedElementsByPackage = new HashMap<>();
         for (Element e : roundEnv.getElementsAnnotatedWith(GenerateReact.class)) {
@@ -86,6 +99,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
             prepareElement(e, annotatedElementsByPackage);
         }
+        
         PACKAGE: for (Map.Entry<String,Set<Element>> packageEntry : annotatedElementsByPackage.entrySet()) {
             String pkg = packageEntry.getKey();
             Set<Element> annotatedElements = packageEntry.getValue();
@@ -105,49 +119,50 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
             Map</*key*/String,/*value*/String> pairs = new HashMap<>();
             Map</*identifier*/String,Element> identifiers = new HashMap<>();
-            Map</*key*/String,/*simplename*/String> compilationUnits = new HashMap<>();
-            Map</*key*/String,/*line*/String[]> comments = new HashMap<>();
+            Map</*key*/String,/*line*/String> methods = new HashMap<>();
             for (Element e : annotatedElements) {
                 String simplename = findCompilationUnitName(e);
-                List<String> runningComments = new ArrayList<>();
-                for (String keyValue : Collections.singleton(e.getAnnotation(GenerateReact.class).value())) {
-                    if (keyValue.startsWith("#")) {
-                        runningComments.add(keyValue);
-                        if (keyValue.matches("# +(PART)?(NO)?I18N *")) {
-                            processingEnv.getMessager().printMessage(Kind.ERROR, "#NOI18N and related keywords must not include spaces", e);
-                        }
-                        continue;
+                for (String xml : Collections.singleton(e.getAnnotation(GenerateReact.class).value())) {
+                    Document dom;
+                    try {
+                        dom = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+                    } catch (SAXException | IOException ex) {
+                        throw new RuntimeException(ex);
                     }
-                    int i = keyValue.indexOf('=');
-                    if (i == -1) {
-                        processingEnv.getMessager().printMessage(Kind.ERROR, "Bad key=value: " + keyValue, e);
-                        continue;
-                    }
-                    String key = keyValue.substring(0, i);
-                    if (key.isEmpty() || !key.equals(key.trim())) {
-                        processingEnv.getMessager().printMessage(Kind.ERROR, "Whitespace not permitted in key: " + keyValue, e);
-                        continue;
-                    }
-                    Element original = identifiers.put(toIdentifier(key), e);
-                    if (original != null) {
-                        processingEnv.getMessager().printMessage(Kind.ERROR, "Duplicate key: " + key, e);
-                        processingEnv.getMessager().printMessage(Kind.ERROR, "Duplicate key: " + key, original);
-                        continue PACKAGE; // do not generate anything
-                    }
-                    String value = keyValue.substring(i + 1);
-                    pairs.put(key, value);
-                    compilationUnits.put(key, simplename);
-                    if (!runningComments.isEmpty()) {
-                        comments.put(key, runningComments.toArray(new String[runningComments.size()]));
-                        runningComments.clear();
-                    }
-                }
-                if (!runningComments.isEmpty()) {
-                    processingEnv.getMessager().printMessage(Kind.ERROR, "Comments must precede keys", e);
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("  public static React.Element " + e.getSimpleName() + "() {\n");
+                    sb.append("     return\n");
+                    printNodes("    ", dom.getChildNodes().item(0), sb);
+                    sb.append(";\n  }\n");
+                    String key = e.getSimpleName().toString();
+                    methods.put(key, sb.toString());
                 }
             }
             Element[] elements = new HashSet<>(identifiers.values()).toArray(new Element[0]);
+            try {
+                    String fqn = pkg + ".ReactBuilder";
+                    Writer w = processingEnv.getFiler().createSourceFile(fqn, elements).openWriter();
+                    try {
+                        PrintWriter pw = new PrintWriter(w);
+                        pw.println("package " + pkg + ";");
+                        pw.println("import cz.xelfi.demo.react4jdemo.api.React;");
+                        pw.println("class ReactBuilder {");
+                        for (String method : methods.values()) {
+                            pw.print(method);
+                        }
+                        pw.println("    private ReactBuilder() {}");
+                        pw.println("}");
+                        pw.flush();
+                        pw.close();
+                    } finally {
+                        w.close();
+                    }
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
         }
+        
+
         return true;
     }
 
@@ -239,6 +254,41 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
         }
         processingEnv.getMessager().printMessage(Kind.WARNING, "Undocumented format parameter {" + i + "}", e, mirror, value);
+    }
+
+    private void printNodes(String indent, Node node, StringBuilder sb) {
+        if (node instanceof Text) {
+            String text = node.getTextContent();
+            text = text.replaceAll("\\\\", "\\\\");
+            text = text.replaceAll("\\\n", "\\\\n");
+            sb.append(indent + "React.createText(\"" + text + "\")");
+            return;
+        }
+        
+        sb.append(indent + "React.createElement(\"" + node.getNodeName() + "\", ");
+        NamedNodeMap attr = node.getAttributes();
+        if (attr != null && attr.getLength() > 0) {
+            for (int i = 0; i < attr.getLength(); i++) {
+                sb.append("\n  " + indent + attr.item(i));
+            }
+        } else {
+            sb.append("null");
+        }
+        sb.append(", ");
+        NodeList children = node.getChildNodes();
+        if (children.getLength() == 0) {
+            sb.append("null");
+        } else {
+            final int len = children.getLength();
+            for (int i = 0; i < len; i++) {
+                sb.append("\n");
+                printNodes("  " + indent, children.item(i), sb);
+                if (i < len - 1) {
+                    sb.append(", ");
+                }
+            }
+            sb.append("\n" + indent + ")");
+        }
     }
 
 }

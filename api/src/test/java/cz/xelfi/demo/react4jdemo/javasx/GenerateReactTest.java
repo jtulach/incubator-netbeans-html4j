@@ -19,9 +19,13 @@
 package cz.xelfi.demo.react4jdemo.javasx;
 
 import cz.xelfi.demo.react4jdemo.api.GenerateReact;
-import static org.junit.Assert.fail;
+import cz.xelfi.demo.react4jdemo.api.React;
+import net.java.html.junit.BrowserRunner;
+import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(BrowserRunner.class)
 public class GenerateReactTest {
     @GenerateReact(
     "  <div>\n" +
@@ -31,6 +35,8 @@ public class GenerateReactTest {
     )
     @Test
     public void divH1H2() {
+        React.Element element = ReactBuilder.divH1H2();
+        assertNotNull("Element has been generated", element);
     }
     
 }

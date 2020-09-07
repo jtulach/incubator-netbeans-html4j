@@ -17,7 +17,11 @@ dependencies {
     compile "com.dukescript.api:javafx.base:8.60.11"
     compile "com.dukescript.api:javafx.beaninfo:0.6"
     compileOnly "org.netbeans.api:org-openide-util-lookup:RELEASE120-u1"
+    annotationProcessor "org.netbeans.api:org-openide-util-lookup:RELEASE120-u1"
     testCompile "com.dukescript.api:junit-browser-runner:1.0"
+    testCompile files("build/classes")
+    testRuntime "org.netbeans.html:net.java.html.boot.fx:1.7"
+    testAnnotationProcessor files("build/classes/java/main/")
 }
 
 task copyReactResources(type: Copy) {

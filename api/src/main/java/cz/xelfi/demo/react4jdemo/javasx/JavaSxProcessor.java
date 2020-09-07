@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,8 +32,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
@@ -51,6 +48,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.openide.util.lookup.ServiceProvider;
+import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -122,7 +120,8 @@ public class JavaSxProcessor extends AbstractProcessor {
             Map</*key*/String,/*line*/String> methods = new HashMap<>();
             for (Element e : annotatedElements) {
                 String simplename = findCompilationUnitName(e);
-                for (String xml : Collections.singleton(e.getAnnotation(GenerateReact.class).value())) {
+                final GenerateReact generateReact = e.getAnnotation(GenerateReact.class);
+                for (String xml : Collections.singleton(generateReact.code())) {
                     Document dom;
                     try {
                         dom = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
@@ -130,7 +129,7 @@ public class JavaSxProcessor extends AbstractProcessor {
                         throw new RuntimeException(ex);
                     }
                     StringBuilder sb = new StringBuilder();
-                    sb.append("  public static React.Element " + e.getSimpleName() + "() {\n");
+                    sb.append("  public static React.Element " + generateReact.method() + "() {\n");
                     sb.append("     return\n");
                     printNodes("    ", dom.getChildNodes().item(0), sb);
                     sb.append(";\n  }\n");
@@ -268,9 +267,15 @@ public class JavaSxProcessor extends AbstractProcessor {
         sb.append(indent + "React.createElement(\"" + node.getNodeName() + "\", ");
         NamedNodeMap attr = node.getAttributes();
         if (attr != null && attr.getLength() > 0) {
+            sb.append("\n" + indent + "React.props(");
             for (int i = 0; i < attr.getLength(); i++) {
-                sb.append("\n  " + indent + attr.item(i));
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                Attr aNode = (Attr) attr.item(i);
+                sb.append('"' + aNode.getName() + "\", \"" + aNode.getValue() + '"');
             }
+            sb.append(")");
         } else {
             sb.append("null");
         }

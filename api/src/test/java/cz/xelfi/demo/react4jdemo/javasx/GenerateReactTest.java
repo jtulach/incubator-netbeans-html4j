@@ -27,16 +27,17 @@ import org.junit.runner.RunWith;
 
 @RunWith(BrowserRunner.class)
 public class GenerateReactTest {
-    @GenerateReact(
-    "  <div>\n" +
+    @GenerateReact(method = "plainDom", code =
+    "  <div class='empty'>\n" +
     "    <h1>Hello!</h1>\n" +
     "    <h2>Good to see you here.</h2>\n" +
     "  </div>"
     )
     @Test
     public void divH1H2() {
-        React.Element element = ReactBuilder.divH1H2();
+        React.Element element = ReactBuilder.plainDom();
         assertNotNull("Element has been generated", element);
     }
+    
     
 }

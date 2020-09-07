@@ -22,7 +22,8 @@ import java.lang.annotation.Repeatable;
 
 @Repeatable(GenerateReact.Group.class)
 public @interface GenerateReact {
-    public String value();
+    public String method();
+    public String code();
     
     public @interface Group {
         public GenerateReact[] value();

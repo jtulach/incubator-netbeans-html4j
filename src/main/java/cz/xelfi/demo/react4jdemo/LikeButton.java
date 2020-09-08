@@ -19,6 +19,7 @@
 package cz.xelfi.demo.react4jdemo;
 
 import com.dukescript.api.javafx.beans.FXBeanInfo;
+import cz.xelfi.demo.react4jdemo.api.GenerateReact;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Element;
 import cz.xelfi.demo.react4jdemo.api.React.Props;
@@ -44,14 +45,15 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         setState(new LikeState(true));
     }
 
+    @GenerateReact(method="renderLike", code =
+        "<div>\n" +
+        "  You like React for JavaFX Light! See <a href='like.html'>more</a>...\n" +
+        "</div>"
+    )
     @Override
     protected Element render() {
         if (this.state().liked) {
-            return React.createElement("div", null,
-                React.createText("You like React for JavaFX Light! See "),
-                React.createElement("a", props("href", "like.html"), React.createText("more")),
-                React.createText("...")
-            );
+            return ReactBuilder.renderLike();
         }
 
         return React.createElement(

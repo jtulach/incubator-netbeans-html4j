@@ -16,16 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.api;
+package cz.xelfi.demo.react4jdemo.javasx;
 
-import java.lang.annotation.Repeatable;
-
-@Repeatable(GenerateReact.Group.class)
-public @interface GenerateReact {
-    public String method();
-    public String code();
-    
-    public @interface Group {
-        public GenerateReact[] value();
-    }
+@interface ExpectedError {
+    String value();
 }

@@ -19,17 +19,13 @@
 
 package cz.xelfi.demo.react4jdemo.javasx;
 
-import cz.xelfi.demo.react4jdemo.api.GenerateReact;
+import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -55,14 +51,21 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
+import cz.xelfi.demo.react4jdemo.api.Render;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.tools.JavaFileObject;
 
 @ServiceProvider(service = Processor.class)
 public class JavaSxProcessor extends AbstractProcessor {
-    @Override 
+    private static final String EXP_ERR_NAME = "cz.xelfi.demo.react4jdemo.javasx.ExpectedError";
+
+    @Override
     public Set<String> getSupportedAnnotationTypes() {
         Set<String> names = new HashSet<>();
-        names.add(GenerateReact.class.getCanonicalName());
-        names.add(GenerateReact.Group.class.getCanonicalName());
+        names.add(Render.class.getCanonicalName());
         return names;
     }
 
@@ -75,93 +78,64 @@ public class JavaSxProcessor extends AbstractProcessor {
         if (roundEnv.processingOver()) {
             return false;
         }
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder;
-        try {
-            builder = dbf.newDocumentBuilder();
-        } catch (ParserConfigurationException ex) {
-            throw new IllegalStateException(ex);
-        }
-        Map</*package*/String,Set<Element>> annotatedElementsByPackage = new HashMap<>();
-        for (Element e : roundEnv.getElementsAnnotatedWith(GenerateReact.class)) {
-            GenerateReact a = e.getAnnotation(GenerateReact.class);
-            if (a == null) {
-                continue;
-            }
-            prepareElement(e, annotatedElementsByPackage);
-        }
-        for (Element e : roundEnv.getElementsAnnotatedWith(GenerateReact.Group.class)) {
-            GenerateReact.Group a = e.getAnnotation(GenerateReact.Group.class);
-            if (a == null) {
-                continue;
-            }
-            prepareElement(e, annotatedElementsByPackage);
-        }
-        
-        PACKAGE: for (Map.Entry<String,Set<Element>> packageEntry : annotatedElementsByPackage.entrySet()) {
-            String pkg = packageEntry.getKey();
-            Set<Element> annotatedElements = packageEntry.getValue();
-            PackageElement pkgE = processingEnv.getElementUtils().getPackageElement(pkg);
-            if (pkgE != null) {
-                Set<Element> unscannedTopElements = new HashSet<>();
-                unscannedTopElements.add(pkgE);
-                try {
-                    unscannedTopElements.addAll(pkgE.getEnclosedElements());
-                } catch (/*NullPointerException,BadClassFile*/RuntimeException x) { // #196556
-                    processingEnv.getMessager().printMessage(Kind.WARNING, "#196556: reading " + pkg + " failed with " + x + " in " + x.getStackTrace()[0] + "; do a clean build!");
-                }
-                unscannedTopElements.removeAll(roundEnv.getRootElements());
-                addToAnnotatedElements(unscannedTopElements, annotatedElements);
-            } else {
-                processingEnv.getMessager().printMessage(Kind.WARNING, "Could not check for other source files in " + pkg);
-            }
-            Map</*key*/String,/*value*/String> pairs = new HashMap<>();
-            Map</*identifier*/String,Element> identifiers = new HashMap<>();
-            Map</*key*/String,/*line*/String> methods = new HashMap<>();
-            for (Element e : annotatedElements) {
-                String simplename = findCompilationUnitName(e);
-                final GenerateReact generateReact = e.getAnnotation(GenerateReact.class);
-                for (String xml : Collections.singleton(generateReact.code())) {
-                    Document dom;
-                    try {
-                        dom = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-                    } catch (SAXException | IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("  public static React.Element " + generateReact.method() + "() {\n");
-                    sb.append("     return\n");
-                    printNodes("    ", dom.getChildNodes().item(0), sb);
-                    sb.append(";\n  }\n");
-                    String key = e.getSimpleName().toString();
-                    methods.put(key, sb.toString());
-                }
-            }
-            Element[] elements = new HashSet<>(identifiers.values()).toArray(new Element[0]);
-            try {
-                    String fqn = pkg + ".ReactBuilder";
-                    Writer w = processingEnv.getFiler().createSourceFile(fqn, elements).openWriter();
-                    try {
-                        PrintWriter pw = new PrintWriter(w);
-                        pw.println("package " + pkg + ";");
-                        pw.println("import cz.xelfi.demo.react4jdemo.api.React;");
-                        pw.println("class ReactBuilder {");
-                        for (String method : methods.values()) {
-                            pw.print(method);
-                        }
-                        pw.println("    private ReactBuilder() {}");
-                        pw.println("}");
-                        pw.flush();
-                        pw.close();
-                    } finally {
-                        w.close();
-                    }
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-        
+        Set<Element> expectedErrors = new HashSet<>();
 
+        Map<TypeElement,Set<ExecutableElement>> annotatedElementsByClass = new HashMap<>();
+        for (Element e : roundEnv.getElementsAnnotatedWith(Render.class)) {
+            if (e.getKind() != ElementKind.METHOD) {
+                continue;
+            }
+            final Element clazz = e.getEnclosingElement();
+            if (clazz.getKind() != ElementKind.CLASS || clazz.getAnnotation(RegisterComponent.class) == null) {
+                emitError(e, expectedErrors, "@Render in a class without @RegisterComponent");
+                continue;
+            }
+            if (
+                !e.getModifiers().contains(Modifier.ABSTRACT) ||
+                !e.getModifiers().contains(Modifier.PROTECTED)
+            ) {
+                emitError(e, expectedErrors, "@Render method must be protected abstract");
+                continue;
+            }
+
+            ExecutableElement method = (ExecutableElement) e;
+            TypeMirror returnType = method.getReturnType();
+            boolean ok = false;
+            if (returnType.getKind() == TypeKind.DECLARED) {
+                Element returnElement = processingEnv.getTypeUtils().asElement(returnType);
+                Name returnBinName = processingEnv.getElementUtils().getBinaryName((TypeElement) returnElement);
+                ok = "cz.xelfi.demo.react4jdemo.api.React$Element".equals(returnBinName.toString());
+            }
+            if (!ok) {
+                emitError(e, expectedErrors, "@Render method must return React.Element");
+                continue;
+            }
+
+            Set<ExecutableElement> allMethods = annotatedElementsByClass.get((TypeElement) clazz);
+            if (allMethods == null) {
+                allMethods = new HashSet<>();
+                annotatedElementsByClass.put((TypeElement) clazz, allMethods);
+            }
+            allMethods.add(method);
+        }
+
+        for (Map.Entry<TypeElement, Set<ExecutableElement>> entry : annotatedElementsByClass.entrySet()) {
+            RegisterComponent cReg = entry.getKey().getAnnotation(RegisterComponent.class);
+            try {
+                generateComponent(entry.getKey(), cReg.name(), entry.getValue());
+            } catch (IOException ex) {
+                emitError(entry.getKey(), expectedErrors, ex.getMessage() + " while generating " + cReg.name());
+            }
+        }
+
+        TypeElement expErrType = processingEnv.getElementUtils().getTypeElement(EXP_ERR_NAME);
+        if (expErrType != null) {
+            for (Element e : roundEnv.getElementsAnnotatedWith(expErrType)) {
+                if (!expectedErrors.contains(e)) {
+                    processingEnv.getMessager().printMessage(Kind.ERROR, "Expected error not emited", e);
+                }
+            }
+        }
         return true;
     }
 
@@ -210,49 +184,13 @@ public class JavaSxProcessor extends AbstractProcessor {
 
     private void addToAnnotatedElements(Collection<? extends Element> unscannedElements, Set<Element> annotatedElements) {
         for (Element e : unscannedElements) {
-            if (e.getAnnotation(GenerateReact.class) != null) {
+            if (e.getAnnotation(Render.class) != null) {
                 annotatedElements.add(e);
             }
             if (e.getKind() != ElementKind.PACKAGE) {
                 addToAnnotatedElements(e.getEnclosedElements(), annotatedElements);
             }
         }
-    }
-
-    private void warnUndocumented(int i, Element e, String key) {
-        AnnotationMirror mirror = null;
-        AnnotationValue value = null;
-        if (e != null) {
-            for (AnnotationMirror _mirror : e.getAnnotationMirrors()) {
-                if (_mirror.getAnnotationType().toString().equals(GenerateReact.class.getCanonicalName())) {
-                    mirror = _mirror;
-                    for (Map.Entry<? extends ExecutableElement,? extends AnnotationValue> entry : mirror.getElementValues().entrySet()) {
-                        if (entry.getKey().getSimpleName().contentEquals("value")) {
-                            // SimpleAnnotationValueVisitor6 unusable here since we need to determine the AnnotationValue in scope when visitString is called:
-                            Object v = entry.getValue().getValue();
-                            if (v instanceof String) {
-                                if (((String) v).startsWith(key + "=")) {
-                                    value = entry.getValue();
-                                }
-                            } else {
-                                for (AnnotationValue subentry : ((List<AnnotationValue>) v)) {
-                                    v = subentry.getValue();
-                                    if (v instanceof String) {
-                                        if (((String) v).startsWith(key + "=")) {
-                                            value = subentry;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        processingEnv.getMessager().printMessage(Kind.WARNING, "Undocumented format parameter {" + i + "}", e, mirror, value);
     }
 
     private void printNodes(String indent, Node node, StringBuilder sb) {
@@ -263,7 +201,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             sb.append(indent + "React.createText(\"" + text + "\")");
             return;
         }
-        
+
         sb.append(indent + "React.createElement(\"" + node.getNodeName() + "\", ");
         NamedNodeMap attr = node.getAttributes();
         if (attr != null && attr.getLength() > 0) {
@@ -294,6 +232,63 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
             sb.append("\n" + indent + ")");
         }
+    }
+
+    private void emitError(Element e, Set<Element> expectedErrors, String error) {
+        for (AnnotationMirror am : e.getAnnotationMirrors()) {
+            Element anno = am.getAnnotationType().asElement();
+            if (anno.getKind() != ElementKind.ANNOTATION_TYPE) {
+                continue;
+            }
+            TypeElement type = (TypeElement) anno;
+            final String typeName = type.getQualifiedName().toString();
+            if (EXP_ERR_NAME.equals(typeName)) {
+                AnnotationValue value = am.getElementValues().values().iterator().next();
+                if (error.equals(value.getValue())) {
+                    expectedErrors.add(e);
+                    return;
+                }
+            }
+        }
+        processingEnv.getMessager().printMessage(Kind.ERROR, error, e);
+    }
+
+    private void generateComponent(TypeElement key, String name, Set<ExecutableElement> methods) throws IOException {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder;
+        try {
+            builder = dbf.newDocumentBuilder();
+        } catch (ParserConfigurationException ex) {
+            throw new IllegalStateException(ex);
+        }
+        String pkg = findPackage(key);
+        JavaFileObject src = processingEnv.getFiler().createSourceFile(pkg + "." + name, methods.toArray(new Element[0]));
+        Writer w = src.openWriter();
+        w.append("package " + pkg  + ";\n");
+        w.append("import cz.xelfi.demo.react4jdemo.api.React;\n");
+        w.append("final class " + name + " extends " + key + " {\n");
+        w.append("  " + name + "(cz.xelfi.demo.react4jdemo.api.React.Props props) {\n");
+        w.append("    super(props);\n");
+        w.append("  }\n");
+        for (ExecutableElement m : methods) {
+            Render render = m.getAnnotation(Render.class);
+            Document node;
+            try {
+                node = builder.parse(new ByteArrayInputStream(render.value().getBytes()));
+            } catch (SAXException ex) {
+                throw new IOException(ex);
+            }
+            w.append("  @Override\n");
+            w.append("  protected final React.Element " + m.getSimpleName() + "() {\n");
+            StringBuilder sb = new StringBuilder();
+            sb.append("    return ");
+            printNodes("    ", node.getChildNodes().item(0), sb);
+            sb.append(";\n");
+            w.append(sb.toString());
+            w.append("  }\n");
+        }
+        w.append("}\n");
+        w.close();
     }
 
 }

@@ -19,13 +19,14 @@
 package cz.xelfi.demo.react4jdemo;
 
 import com.dukescript.api.javafx.beans.FXBeanInfo;
-import cz.xelfi.demo.react4jdemo.api.GenerateReact;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Element;
 import cz.xelfi.demo.react4jdemo.api.React.Props;
-import static cz.xelfi.demo.react4jdemo.api.React.props;
+import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
+import cz.xelfi.demo.react4jdemo.api.Render;
 
-public final class LikeButton extends React.Component<LikeButton.LikeState>  {
+@RegisterComponent(name = "ReactLikeButton")
+public abstract class LikeButton extends React.Component<LikeButton.LikeState>  {
     public LikeButton(Props props) {
         super(props);
         setState(new LikeState(false));
@@ -45,15 +46,17 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
         setState(new LikeState(true));
     }
 
-    @GenerateReact(method="renderLike", code =
+    @Render(
         "<div>\n" +
         "  You like React for JavaFX Light! See <a href='like.html'>more</a>...\n" +
         "</div>"
     )
+    protected abstract Element renderLike();
+
     @Override
     protected Element render() {
         if (this.state().liked) {
-            return ReactBuilder.renderLike();
+            return renderLike();
         }
 
         return React.createElement(
@@ -64,7 +67,7 @@ public final class LikeButton extends React.Component<LikeButton.LikeState>  {
     }
 
     public static void onPageLoad() {
-        React.register("LikeButton", LikeButton::new);
+        React.register("LikeButton", ReactLikeButton::new);
         React.render("LikeButton", "like_button_container");
     }
 }

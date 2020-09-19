@@ -18,26 +18,35 @@
  */
 package cz.xelfi.demo.react4jdemo.javasx;
 
-import cz.xelfi.demo.react4jdemo.api.GenerateReact;
 import cz.xelfi.demo.react4jdemo.api.React;
+import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
 import net.java.html.junit.BrowserRunner;
 import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import cz.xelfi.demo.react4jdemo.api.Render;
 
 @RunWith(BrowserRunner.class)
 public class GenerateReactTest {
-    @GenerateReact(method = "plainDom", code =
-    "  <div class='empty'>\n" +
-    "    <h1>Hello!</h1>\n" +
-    "    <h2>Good to see you here.</h2>\n" +
-    "  </div>"
-    )
+    @RegisterComponent(name = "GenerateReactRender")
+    static abstract class RenderTest {
+        RenderTest(React.Props p) {
+        }
+
+        @Render(
+        "  <div class='empty'>\n" +
+        "    <h1>Hello!</h1>\n" +
+        "    <h2>Good to see you here.</h2>\n" +
+        "  </div>"
+        )
+        protected abstract React.Element noArgs();
+    }
+
     @Test
     public void divH1H2() {
-        React.Element element = ReactBuilder.plainDom();
+        React.Element element = new GenerateReactRender(null).noArgs();
         assertNotNull("Element has been generated", element);
     }
-    
-    
+
+
 }

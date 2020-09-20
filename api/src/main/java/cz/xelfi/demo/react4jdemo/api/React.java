@@ -69,6 +69,12 @@ public class React {
         } else {
             rawChilden = null;
         }
+        if (type instanceof String) {
+            Object real = FACTORIES.get(type);
+            if (real != null) {
+                type = real;
+            }
+        }
         Object js = createElement0(type, rawModel, rawChilden);
         return new Element(js, type, attrs, children);
     }

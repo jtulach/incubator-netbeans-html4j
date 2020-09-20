@@ -48,5 +48,17 @@ public class RenderAnnotationTest {
         @Render("<h1>no register</h1>")
         protected abstract void renderSomething();
     }
+    @ExpectedError("@RegisterComponent: Make class static!")
+    @RegisterComponent(name = "RenderNotStatic")
+    abstract class RenderNotStatic {
+        @Render("<h1>no register</h1>")
+        protected abstract React.Element renderSomething();
+    }
+    @ExpectedError("@RegisterComponent: Make class non-private!")
+    @RegisterComponent(name = "RenderNotPrivate")
+    private static abstract class RenderNotPrivate {
+        @Render("<h1>no register</h1>")
+        protected abstract React.Element renderSomething();
+    }
 }
 

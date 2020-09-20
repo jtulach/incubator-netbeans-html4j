@@ -23,7 +23,6 @@ import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -52,6 +51,9 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 import cz.xelfi.demo.react4jdemo.api.Render;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeKind;
@@ -121,8 +123,12 @@ public class JavaSxProcessor extends AbstractProcessor {
 
         for (Map.Entry<TypeElement, Set<ExecutableElement>> entry : annotatedElementsByClass.entrySet()) {
             RegisterComponent cReg = entry.getKey().getAnnotation(RegisterComponent.class);
+            String pkg = findAndVerify(entry.getKey(), expectedErrors);
+            if (pkg == null) {
+                continue;
+            }
             try {
-                generateComponent(entry.getKey(), cReg.name(), entry.getValue());
+                generateComponent(entry.getKey(), pkg, cReg.name(), entry.getValue());
             } catch (IOException ex) {
                 emitError(entry.getKey(), expectedErrors, ex.getMessage() + " while generating " + cReg.name());
             }
@@ -139,58 +145,29 @@ public class JavaSxProcessor extends AbstractProcessor {
         return true;
     }
 
-    private void prepareElement(Element e, Map<String, Set<Element>> annotatedElementsByPackage) {
-        String pkg = findPackage(e);
-        Set<Element> annotatedElements = annotatedElementsByPackage.get(pkg);
-        if (annotatedElements == null) {
-            annotatedElements = new HashSet<>();
-            annotatedElementsByPackage.put(pkg, annotatedElements);
+    private String findAndVerify(Element e, Set<Element> expectedErrors) {
+        LinkedList<TypeElement> allButTopMostClasses = new LinkedList<>();
+        PackageElement pkg;
+        for (;;) {
+            if (e.getKind() == ElementKind.PACKAGE) {
+                pkg = ((PackageElement) e);
+                break;
+            }
+            allButTopMostClasses.add((TypeElement) e);
+            e = e.getEnclosingElement();
         }
-        annotatedElements.add(e);
-    }
-
-    private String findPackage(Element e) {
-        switch (e.getKind()) {
-        case PACKAGE:
-            return ((PackageElement) e).getQualifiedName().toString();
-        default:
-            return findPackage(e.getEnclosingElement());
-        }
-    }
-
-    private String findCompilationUnitName(Element e) {
-        switch (e.getKind()) {
-        case PACKAGE:
-            return "package-info";
-        case CLASS:
-        case INTERFACE:
-        case ENUM:
-        case ANNOTATION_TYPE:
-            switch (e.getEnclosingElement().getKind()) {
-            case PACKAGE:
-                return e.getSimpleName().toString();
+        allButTopMostClasses.removeLast();
+        for (TypeElement innerClass : allButTopMostClasses) {
+            if (innerClass.getModifiers().contains(Modifier.PRIVATE)) {
+                emitError(innerClass, expectedErrors, "@RegisterComponent: Make class non-private!");
+                return null;
+            }
+            if (!innerClass.getModifiers().contains(Modifier.STATIC)) {
+                emitError(innerClass, expectedErrors, "@RegisterComponent: Make class static!");
+                return null;
             }
         }
-        return findCompilationUnitName(e.getEnclosingElement());
-    }
-
-    private String toIdentifier(String key) {
-        return key;
-    }
-
-    private String toJavadoc(String text) {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace("*/", "&#x2A;/").replace("\n", "<br>").replace("@", "&#64;");
-    }
-
-    private void addToAnnotatedElements(Collection<? extends Element> unscannedElements, Set<Element> annotatedElements) {
-        for (Element e : unscannedElements) {
-            if (e.getAnnotation(Render.class) != null) {
-                annotatedElements.add(e);
-            }
-            if (e.getKind() != ElementKind.PACKAGE) {
-                addToAnnotatedElements(e.getEnclosedElements(), annotatedElements);
-            }
-        }
+        return pkg.getQualifiedName().toString();
     }
 
     private void printNodes(String indent, Node node, StringBuilder sb) {
@@ -253,7 +230,7 @@ public class JavaSxProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Kind.ERROR, error, e);
     }
 
-    private void generateComponent(TypeElement key, String name, Set<ExecutableElement> methods) throws IOException {
+    private void generateComponent(TypeElement key, String pkg, String name, Set<ExecutableElement> methods) throws IOException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
         try {
@@ -261,7 +238,6 @@ public class JavaSxProcessor extends AbstractProcessor {
         } catch (ParserConfigurationException ex) {
             throw new IllegalStateException(ex);
         }
-        String pkg = findPackage(key);
         JavaFileObject src = processingEnv.getFiler().createSourceFile(pkg + "." + name, methods.toArray(new Element[0]));
         Writer w = src.openWriter();
         w.append("package " + pkg  + ";\n");

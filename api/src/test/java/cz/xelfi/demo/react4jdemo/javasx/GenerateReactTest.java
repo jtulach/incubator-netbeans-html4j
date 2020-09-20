@@ -26,6 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import cz.xelfi.demo.react4jdemo.api.Render;
 import net.java.html.junit.HTMLContent;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import org.netbeans.html.boot.spi.Fn;
 
@@ -52,12 +53,19 @@ public class GenerateReactTest {
         "    <h1>Hello, {name}!</h1>\n" +
         "    <h2>Good to see it working {times}x times!</h2>\n" +
         "  </div>"
-        )
+        ) 
         protected abstract React.Element someArgs(String name, int times);
+
+        @Render(
+        "  <div class='empty'>\n" +
+        "    <a href='{url}'>Link</a>\n" +
+        "  </div>"
+        ) 
+        protected abstract React.Element someAttrs(String url);
     }
 
     @Test
-    public void divH1H2() throws Exception {
+    public void renderNoArgs() throws Exception {
         React.Element element = new GenerateReactRender(null).noArgs();
         assertNotNull("Element has been generated", element);
         React.render(element, "mocknode");
@@ -75,6 +83,16 @@ public class GenerateReactTest {
         String text = innerHTML("mocknode");
         assertTrue(text, text.contains("Hello, guys!"));
         assertTrue(text, text.contains("working 2x times!"));
+    }
+
+    @Test
+    public void someAttrs() throws Exception {
+        React.Element element = new GenerateReactRender(null).someAttrs("http://netbeans.org");
+        assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+        assertTrue(text, text.contains("netbeans.org"));
     }
 
     private static String innerHTML(String id) throws Exception {

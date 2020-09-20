@@ -177,17 +177,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             text = text.replaceAll("\\\\", "\\\\");
             text = text.replaceAll("\\\n", "\\\\n");
 
-            text = '"' + text + '"';
-            for (String v : variables) {
-                for (;;) {
-                    int at = text.indexOf("{" + v + "}");
-                    if (at == -1) {
-                        break;
-                    }
-                    text = text.substring(0, at) + "\" + " + v + "+ \""
-                            + text.substring(at + v.length() + 2);
-                }
-            }
+            text = eliminateVariables(text, variables);
             sb.append(indent).append("React.createText(").append(text).append(")");
             return;
         }
@@ -201,7 +191,8 @@ public class JavaSxProcessor extends AbstractProcessor {
                     sb.append(", ");
                 }
                 Attr aNode = (Attr) attr.item(i);
-                sb.append('"' + aNode.getName() + "\", \"" + aNode.getValue() + '"');
+                String attrValue = eliminateVariables(aNode.getValue(), variables);
+                sb.append('"').append(aNode.getName()).append("\", ").append(attrValue);
             }
             sb.append(")");
         } else {
@@ -222,6 +213,21 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
             sb.append("\n" + indent + ")");
         }
+    }
+
+    private String eliminateVariables(String text, Set<String> variables) {
+        text = '"' + text + '"';
+        for (String v : variables) {
+            for (;;) {
+                int at = text.indexOf("{" + v + "}");
+                if (at == -1) {
+                    break;
+                }
+                text = text.substring(0, at) + "\" + " + v + "+ \""
+                        + text.substring(at + v.length() + 2);
+            }
+        }
+        return text;
     }
 
     private void emitError(Element e, Set<Element> expectedErrors, String error) {

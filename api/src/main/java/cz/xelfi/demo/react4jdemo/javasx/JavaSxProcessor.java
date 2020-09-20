@@ -51,7 +51,6 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 import cz.xelfi.demo.react4jdemo.api.Render;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -119,6 +118,12 @@ public class JavaSxProcessor extends AbstractProcessor {
                 annotatedElementsByClass.put((TypeElement) clazz, allMethods);
             }
             allMethods.add(method);
+        }
+
+        for (Element clazz : roundEnv.getElementsAnnotatedWith(RegisterComponent.class)) {
+            if (!clazz.getModifiers().contains(Modifier.ABSTRACT)) {
+                emitError(clazz, expectedErrors, "@RegisterComponent can only annotate abstract class");
+            }
         }
 
         for (Map.Entry<TypeElement, Set<ExecutableElement>> entry : annotatedElementsByClass.entrySet()) {

@@ -28,6 +28,10 @@ public class RenderAnnotationTest {
         @Render("<h1>no register</h1>")
         protected abstract React.Element renderSomething();
     }
+    @RegisterComponent(name = "RenderClassNotAbstract")
+    @ExpectedError("@RegisterComponent can only annotate abstract class")
+    static class RenderClassNotAbstract {
+    }
     @RegisterComponent(name = "RenderNotAbstract")
     static abstract class RenderNotAbstract {
         @ExpectedError("@Render method must be protected abstract")

@@ -21,6 +21,8 @@ package cz.xelfi.demo.react4jdemo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Element;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
+import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
+import cz.xelfi.demo.react4jdemo.api.Render;
 
 public class TicTacToe1 {
 
@@ -31,22 +33,26 @@ public class TicTacToe1 {
     private TicTacToe1() {
     }
 
-    static class Square extends React.Component<Square> {
+    @RegisterComponent(name = "TicTacToe1Square")
+    static abstract class Square extends React.Component<Square> {
         final String className = "square";
 
         Square(React.Props props) {
             super(props);
         }
 
+        @Render("" +
+            "<button className='square' onClick='{click}'>{value}</button>"
+        )
+        protected abstract Element renderSquare(String value, Runnable click);
+
         @Override
         protected Element render() {
-            return React.createElement(
-                "button", JsUtils.onButton("square", () -> {
-                    final String msg = "Clicked " + getProperty("value");
-                    System.err.println(msg);
-                    JsUtils.alert(msg);
-                }), React.createText((String) this.getProperty("value"))
-            );
+            return renderSquare((String) this.getProperty("value"), () -> {
+                final String msg = "Clicked " + getProperty("value");
+                System.err.println(msg);
+                JsUtils.alert(msg);
+            });
         }
     }
 
@@ -107,7 +113,7 @@ public class TicTacToe1 {
     }
 
     public static void onPageLoad() {
-        cSquare = React.register("Square", Square::new);
+        cSquare = React.register("Square", TicTacToe1Square::new);
         cBoard = React.register("Board", Board::new);
         cGame = React.register("Game", Game::new);
         React.render("Game", "root");

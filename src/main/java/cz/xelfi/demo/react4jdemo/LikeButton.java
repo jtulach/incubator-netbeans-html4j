@@ -51,19 +51,20 @@ public abstract class LikeButton extends React.Component<LikeButton.LikeState>  
         "  You like React for JavaFX Light! See <a href='like.html'>more</a>...\n" +
         "</div>"
     )
-    protected abstract Element renderLike();
+    protected abstract Element renderReply();
+
+    @Render(
+        "<button onClick='{onClick}'>Like</button>"
+    )
+    protected abstract Element renderLikeButton(Runnable onClick);
 
     @Override
     protected Element render() {
         if (this.state().liked) {
-            return renderLike();
+            return renderReply();
+        } else {
+            return renderLikeButton(this::doLike);
         }
-
-        return React.createElement(
-          "button",
-          JsUtils.onButton("", this::doLike),
-          React.createText("Like")
-        );
     }
 
     public static void onPageLoad() {

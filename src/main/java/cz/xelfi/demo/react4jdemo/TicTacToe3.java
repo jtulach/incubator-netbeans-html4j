@@ -22,6 +22,8 @@ import com.dukescript.api.javafx.beans.FXBeanInfo;
 import cz.xelfi.demo.react4jdemo.api.React;
 import cz.xelfi.demo.react4jdemo.api.React.Element;
 import static cz.xelfi.demo.react4jdemo.api.React.props;
+import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
+import cz.xelfi.demo.react4jdemo.api.Render;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,19 +37,25 @@ public class TicTacToe3 {
     private TicTacToe3() {
     }
 
-    static class Square extends React.Component<Void> {
+    @RegisterComponent(name = "TicTacToe3Square")
+    static abstract class Square extends React.Component<Void> {
         final String className = "square";
 
         Square(React.Props props) {
             super(props);
         }
 
+        @Render(
+            "<button className='square' onClick='{click}'>{text}</button>"
+        )
+        protected abstract React.Element renderButton(String text, Runnable click);
+
         @Override
         protected React.Element render() {
             String text = (String) getProperty("value");
-            return React.createElement("button", JsUtils.onButton("square", () -> {
+            return renderButton(text, () -> {
                 onEvent("onClick");
-            }), React.createText(text));
+            });
         }
     }
 
@@ -179,7 +187,7 @@ public class TicTacToe3 {
     }
 
     public static void onPageLoad() {
-        cSquare = React.register("Square", Square::new);
+        cSquare = React.register("Square", TicTacToe3Square::new);
         cBoard = React.register("Board", Board::new);
         cGame = React.register("Game", Game::new);
         React.render("Game", "root");

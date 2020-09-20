@@ -24,30 +24,11 @@ import net.java.html.js.JavaScriptBody;
 final class JsUtils {
     private JsUtils() {
     }
-    
+
     @JavaScriptBody(args = { "msg" }, body = "alert(msg);")
     public static native void alert(String msg);
-    
+
 
     @JavaScriptBody(args = {}, body = "debugger;")
     public static native void debugger();
-
-    public static OnButton onButton(String className, Runnable action) {
-        return new OnButton(className, action);
-    }
-    
-    @FXBeanInfo.Generate
-    static final class OnButton extends OnButtonBase {
-        final String className;
-        private final Runnable action;
-
-        private OnButton(String className, Runnable action) {
-            this.className = className;
-            this.action = action;
-        }
-        
-        void onClick() {
-            action.run();
-        }
-    }
 }

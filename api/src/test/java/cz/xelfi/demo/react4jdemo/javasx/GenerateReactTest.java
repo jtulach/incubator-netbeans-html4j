@@ -46,6 +46,14 @@ public class GenerateReactTest {
         "  </div>"
         )
         protected abstract React.Element noArgs();
+
+        @Render(
+        "  <div class='empty'>\n" +
+        "    <h1>Hello, {name}!</h1>\n" +
+        "    <h2>Good to see it working {times}x times!</h2>\n" +
+        "  </div>"
+        )
+        protected abstract React.Element someArgs(String name, int times);
     }
 
     @Test
@@ -56,6 +64,17 @@ public class GenerateReactTest {
 
         String text = innerHTML("mocknode");
         assertTrue(text, text.contains("Good to see React4J working!"));
+    }
+
+    @Test
+    public void someArguments() throws Exception {
+        React.Element element = new GenerateReactRender(null).someArgs("guys", 2);
+        assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+        assertTrue(text, text.contains("Hello, guys!"));
+        assertTrue(text, text.contains("working 2x times!"));
     }
 
     private static String innerHTML(String id) throws Exception {

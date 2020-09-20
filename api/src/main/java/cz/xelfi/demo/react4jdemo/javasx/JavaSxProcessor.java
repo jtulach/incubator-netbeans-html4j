@@ -56,6 +56,7 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
@@ -170,12 +171,24 @@ public class JavaSxProcessor extends AbstractProcessor {
         return pkg.getQualifiedName().toString();
     }
 
-    private void printNodes(String indent, Node node, StringBuilder sb) {
+    private void printNodes(String indent, Node node, Set<String> variables, StringBuilder sb) {
         if (node instanceof Text) {
             String text = node.getTextContent();
             text = text.replaceAll("\\\\", "\\\\");
             text = text.replaceAll("\\\n", "\\\\n");
-            sb.append(indent + "React.createText(\"" + text + "\")");
+
+            text = '"' + text + '"';
+            for (String v : variables) {
+                for (;;) {
+                    int at = text.indexOf("{" + v + "}");
+                    if (at == -1) {
+                        break;
+                    }
+                    text = text.substring(0, at) + "\" + " + v + "+ \""
+                            + text.substring(at + v.length() + 2);
+                }
+            }
+            sb.append(indent).append("React.createText(").append(text).append(")");
             return;
         }
 
@@ -202,7 +215,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             final int len = children.getLength();
             for (int i = 0; i < len; i++) {
                 sb.append("\n");
-                printNodes("  " + indent, children.item(i), sb);
+                printNodes("  " + indent, children.item(i), variables, sb);
                 if (i < len - 1) {
                     sb.append(", ");
                 }
@@ -255,10 +268,28 @@ public class JavaSxProcessor extends AbstractProcessor {
                 throw new IOException(ex);
             }
             w.append("  @Override\n");
-            w.append("  protected final React.Element " + m.getSimpleName() + "() {\n");
+            w.append("  protected final React.Element " + m.getSimpleName() + "(");
+
+            Set<String> replacements = new HashSet<>();
+            {
+                String sep = "";
+                for (VariableElement p : m.getParameters()) {
+                    TypeMirror pType = p.asType();
+
+                    w.append(sep);
+                    w.append(pType.toString());
+                    w.append(" ");
+                    w.append(p.getSimpleName());
+
+                    replacements.add(p.getSimpleName().toString());
+
+                    sep = ", ";
+                }
+            }
+            w.append(") {\n");
             StringBuilder sb = new StringBuilder();
             sb.append("    return ");
-            printNodes("    ", node.getChildNodes().item(0), sb);
+            printNodes("    ", node.getChildNodes().item(0), replacements, sb);
             sb.append(";\n");
             w.append(sb.toString());
             w.append("  }\n");

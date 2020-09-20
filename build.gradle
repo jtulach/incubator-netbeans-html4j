@@ -9,7 +9,7 @@ buildscript {
 
 plugins {
     id "me.tatarka.retrolambda" version "3.7.1"
-    id 'org.openjfx.javafxplugin' version '0.0.7' apply false
+    id 'org.openjfx.javafxplugin' version '0.0.9' apply false
 }
 
 apply plugin: 'java'

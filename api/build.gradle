@@ -9,10 +9,17 @@ buildscript {
 
 apply plugin: 'java'
 apply plugin: 'html4j'
+apply plugin: 'org.openjfx.javafxplugin'
 
 compileJava {
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
+}
+
+javafx {
+    version = '15';
+    modules = [ 'javafx.web' ]
+    configuration = 'testRuntime'
 }
 
 dependencies {

@@ -25,8 +25,14 @@ import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import cz.xelfi.demo.react4jdemo.api.Render;
+import net.java.html.junit.HTMLContent;
+import static org.junit.Assert.assertTrue;
+import org.netbeans.html.boot.spi.Fn;
 
 @RunWith(BrowserRunner.class)
+@HTMLContent(value = "\n"
+    + "<div id='mocknode'/>\n"
+)
 public class GenerateReactTest {
     @RegisterComponent(name = "GenerateReactRender")
     static abstract class RenderTest {
@@ -36,17 +42,25 @@ public class GenerateReactTest {
         @Render(
         "  <div class='empty'>\n" +
         "    <h1>Hello!</h1>\n" +
-        "    <h2>Good to see you here.</h2>\n" +
+        "    <h2>Good to see React4J working!</h2>\n" +
         "  </div>"
         )
         protected abstract React.Element noArgs();
     }
 
     @Test
-    public void divH1H2() {
+    public void divH1H2() throws Exception {
         React.Element element = new GenerateReactRender(null).noArgs();
         assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+        assertTrue(text, text.contains("Good to see React4J working!"));
     }
 
-
+    private static String innerHTML(String id) throws Exception {
+        Fn.Presenter p = Fn.activePresenter();
+        assertNotNull("Presenter is active", p);
+        return (String) p.defineFn("return document.getElementById('" + id + "').innerHTML").invoke(null);
+    }
 }

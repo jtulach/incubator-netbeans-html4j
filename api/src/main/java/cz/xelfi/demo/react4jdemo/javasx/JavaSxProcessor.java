@@ -53,7 +53,6 @@ import org.xml.sax.SAXException;
 import cz.xelfi.demo.react4jdemo.api.Render;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
@@ -216,18 +215,34 @@ public class JavaSxProcessor extends AbstractProcessor {
     }
 
     private String eliminateVariables(String text, Set<String> variables) {
-        text = '"' + text + '"';
+        int cntVariables = 0;
         for (String v : variables) {
             for (;;) {
                 int at = text.indexOf("{" + v + "}");
                 if (at == -1) {
                     break;
                 }
-                text = text.substring(0, at) + "\" + " + v + "+ \""
-                        + text.substring(at + v.length() + 2);
+                final String before = text.substring(0, at);
+                final String after = text.substring(at + v.length() + 2);
+                if (cntVariables == 0 && before.isEmpty() && after.isEmpty()) {
+                    text = v;
+                    cntVariables = 1;
+                } else {
+                    text = before + "\" + " + v + "+ \"" + after;
+                    cntVariables = 10;
+                }
             }
         }
-        return text;
+        switch (cntVariables) {
+            case 1:
+                // single variables
+                return text;
+            case 0:
+                // just text
+            default:
+                // many variables
+                return '\"' + text + '\"';
+        }
     }
 
     private void emitError(Element e, Set<Element> expectedErrors, String error) {
@@ -265,6 +280,7 @@ public class JavaSxProcessor extends AbstractProcessor {
         w.append("  " + name + "(cz.xelfi.demo.react4jdemo.api.React.Props props) {\n");
         w.append("    super(props);\n");
         w.append("  }\n");
+        boolean hasCallback = false;
         for (ExecutableElement m : methods) {
             Render render = m.getAnnotation(Render.class);
             Document node;
@@ -277,22 +293,44 @@ public class JavaSxProcessor extends AbstractProcessor {
             w.append("  protected final React.Element " + m.getSimpleName() + "(");
 
             Set<String> replacements = new HashSet<>();
+            StringBuilder prologue = new StringBuilder();
             {
                 String sep = "";
+                int cnt = 0;
                 for (VariableElement p : m.getParameters()) {
                     TypeMirror pType = p.asType();
 
                     w.append(sep);
                     w.append(pType.toString());
                     w.append(" ");
-                    w.append(p.getSimpleName());
 
-                    replacements.add(p.getSimpleName().toString());
-
+                    ExecutableElement fn = methodOfFunctionInterface(pType);
+                    if (fn != null) {
+                        hasCallback = true;
+                        int idx = ++cnt;
+                        w.append("_callback" + idx);
+                        prologue.append("   java.lang.Object " + p.getSimpleName() + " = cz.xelfi.demo.react4jdemo.api.React4J.wrapCallback(new cz.xelfi.demo.react4jdemo.api.React4J.Callback() {\n");
+                        prologue.append("     protected void callback(Object[] args) {\n");
+                        prologue.append("       _callback" + idx + ".").append(fn.getSimpleName()).append("(");
+                        String sep1 = "";
+                        for (int i = 0; i < fn.getParameters().size(); i++) {
+                            prologue.append(sep1);
+                            prologue.append("(" + fn.getParameters().get(i).asType() + ") obj[" + i + "]");
+                            sep1 = ", ";
+                        }
+                        prologue.append(");\n");
+                        prologue.append("     }\n");
+                        prologue.append("    });\n");
+                        replacements.add(p.getSimpleName().toString());
+                    } else {
+                        w.append(p.getSimpleName());
+                        replacements.add(p.getSimpleName().toString());
+                    }
                     sep = ", ";
                 }
             }
             w.append(") {\n");
+            w.append(prologue);
             StringBuilder sb = new StringBuilder();
             sb.append("    return ");
             printNodes("    ", node.getChildNodes().item(0), replacements, sb);
@@ -304,4 +342,23 @@ public class JavaSxProcessor extends AbstractProcessor {
         w.close();
     }
 
+    private ExecutableElement methodOfFunctionInterface(TypeMirror type) {
+        Element element = processingEnv.getTypeUtils().asElement(type);
+        if (element == null || element.getKind() != ElementKind.INTERFACE) {
+            return null;
+        }
+        ExecutableElement ee = null;
+        for (Element member : element.getEnclosedElements()) {
+            if (member.getModifiers().contains(Modifier.DEFAULT)) {
+                continue;
+            }
+            if (member.getKind() == ElementKind.METHOD) {
+                if (ee != null) {
+                    return null;
+                }
+                ee = (ExecutableElement) member;
+            }
+        }
+        return ee;
+    }
 }

@@ -53,15 +53,22 @@ public class GenerateReactTest {
         "    <h1>Hello, {name}!</h1>\n" +
         "    <h2>Good to see it working {times}x times!</h2>\n" +
         "  </div>"
-        ) 
+        )
         protected abstract React.Element someArgs(String name, int times);
 
         @Render(
         "  <div class='empty'>\n" +
         "    <a href='{url}'>Link</a>\n" +
         "  </div>"
-        ) 
+        )
         protected abstract React.Element someAttrs(String url);
+
+        @Render(
+        "  <div class='empty'>\n" +
+        "    <button id='clickButton' onClick='{call}'>Press {name}!</button>\n" +
+        "  </div>"
+        )
+        protected abstract React.Element callback(String name, Runnable call);
     }
 
     @Test
@@ -95,9 +102,33 @@ public class GenerateReactTest {
         assertTrue(text, text.contains("netbeans.org"));
     }
 
+    @Test
+    public void callbackArgument() throws Exception {
+        int[] cnt = { 0 };
+        Runnable onClick = () -> {
+            cnt[0]++;
+        };
+
+        React.Element element = new GenerateReactRender(null).callback("the button", onClick);
+        assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+        assertTrue(text, text.contains("Press the button!"));
+        doClick("clickButton");
+
+        assertEquals("Counter incremented", 1, cnt[0]);
+    }
+
     private static String innerHTML(String id) throws Exception {
         Fn.Presenter p = Fn.activePresenter();
         assertNotNull("Presenter is active", p);
         return (String) p.defineFn("return document.getElementById('" + id + "').innerHTML").invoke(null);
+    }
+
+    private static String doClick(String id) throws Exception {
+        Fn.Presenter p = Fn.activePresenter();
+        assertNotNull("Presenter is active", p);
+        return (String) p.defineFn("document.getElementById('" + id + "').click();").invoke(null);
     }
 }

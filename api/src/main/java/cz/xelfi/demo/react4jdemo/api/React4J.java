@@ -30,4 +30,22 @@ public final class React4J implements Contexts.Provider {
         context.register(Technology.class, new ReactTech(), 5);
         context.register(Transfer.class, new ReactTrans(), 5);
     }
+
+    public static abstract class Callback {
+        protected abstract void callback(Object[] args);
+    }
+
+    @net.java.html.js.JavaScriptBody(args = {"c"}, javacall = true, body
+    = "return function() {\n"
+    + "   var args = Array.prototype.slice.call(arguments);\n"
+    + "   @cz.xelfi.demo.react4jdemo.api.React4J::handleCallback(Ljava/lang/Object;Ljava/lang/Object;)(c, args);\n"
+    + "};\n"
+    )
+    public static native Object wrapCallback(Callback c);
+
+    static void handleCallback(Object c, Object arguments) {
+        Callback callback = (Callback) c;
+        Object[] args = (Object[]) arguments;
+        callback.callback(args);
+    }
 }

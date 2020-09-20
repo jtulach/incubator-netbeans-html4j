@@ -60,9 +60,14 @@ public class React {
         } else if (attrs instanceof Props) {
             rawModel = ((Props) attrs).js;
         }
-        Object[] rawChilden = new Object[children.length];
-        for (int i = 0; i < rawChilden.length; i++) {
-            rawChilden[i] = children[i].js;
+        final Object[] rawChilden;
+        if (children != null) {
+            rawChilden = new Object[children.length];
+            for (int i = 0; i < rawChilden.length; i++) {
+                rawChilden[i] = children[i].js;
+            }
+        } else {
+            rawChilden = null;
         }
         Object js = createElement0(type, rawModel, rawChilden);
         return new Element(js, type, attrs, children);

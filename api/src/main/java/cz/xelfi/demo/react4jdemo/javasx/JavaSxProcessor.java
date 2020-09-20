@@ -205,7 +205,7 @@ public class JavaSxProcessor extends AbstractProcessor {
         sb.append(", ");
         NodeList children = node.getChildNodes();
         if (children.getLength() == 0) {
-            sb.append("null");
+            sb.append("(React.Element[]) null");
         } else {
             final int len = children.getLength();
             for (int i = 0; i < len; i++) {
@@ -215,8 +215,8 @@ public class JavaSxProcessor extends AbstractProcessor {
                     sb.append(", ");
                 }
             }
-            sb.append("\n" + indent + ")");
         }
+        sb.append("\n" + indent + ")");
     }
 
     private String eliminateVariables(String text, Set<String> variables) {

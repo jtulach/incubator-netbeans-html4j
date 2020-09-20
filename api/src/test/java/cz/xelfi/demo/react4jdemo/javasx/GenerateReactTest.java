@@ -69,6 +69,11 @@ public class GenerateReactTest {
         "  </div>"
         )
         protected abstract React.Element callback(String name, Runnable call);
+
+        @Render(
+            "<input value='{i}' onChange='{ch}'/>"
+        )
+        protected abstract React.Element input(int i, Runnable ch);
     }
 
     @Test
@@ -120,6 +125,16 @@ public class GenerateReactTest {
         assertEquals("Counter incremented", 1, cnt[0]);
     }
 
+    @Test
+    public void input() throws Exception {
+        React.Element element = new GenerateReactRender(null).input(3, () -> {});
+        assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+
+        assertTrue(text, text.contains("input value=\"3\""));
+    }
     private static String innerHTML(String id) throws Exception {
         Fn.Presenter p = Fn.activePresenter();
         assertNotNull("Presenter is active", p);

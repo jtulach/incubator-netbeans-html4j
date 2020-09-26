@@ -19,11 +19,11 @@
 package cz.xelfi.demo.react4jdemo;
 
 import com.dukescript.api.javafx.beans.FXBeanInfo;
-import cz.xelfi.demo.react4jdemo.api.React;
-import cz.xelfi.demo.react4jdemo.api.React.Element;
-import cz.xelfi.demo.react4jdemo.api.React.Props;
-import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
-import cz.xelfi.demo.react4jdemo.api.Render;
+import net.java.html.react.React;
+import net.java.html.react.React.Element;
+import net.java.html.react.React.Props;
+import net.java.html.react.RegisterComponent;
+import net.java.html.react.Render;
 
 @RegisterComponent(name = "ReactLikeButton")
 public abstract class LikeButton extends React.Component<LikeButton.LikeState>  {

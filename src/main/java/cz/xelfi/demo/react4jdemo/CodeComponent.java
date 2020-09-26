@@ -18,8 +18,8 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
-import cz.xelfi.demo.react4jdemo.api.React;
-import cz.xelfi.demo.react4jdemo.api.React.Element;
+import net.java.html.react.React;
+import net.java.html.react.React.Element;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.api;
+package net.java.html.react;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -95,13 +95,13 @@ public class React {
         "    let JavaReactWrapper = class __ extends React.Component {\n" +
         "      constructor(props) {\n" +
         "        super(props);\n" +
-        "        let both = @cz.xelfi.demo.react4jdemo.api.React::factory(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(this, props, factory);\n" +
+        "        let both = @net.java.html.react.React::factory(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(this, props, factory);\n" +
         "        this.java = both[0];\n" +
         "        this.state = both[1];\n" +
         "      }\n" +
         "\n" +
         "      render() {\n" +
-        "        return @cz.xelfi.demo.react4jdemo.api.React::render(Ljava/lang/Object;)(this.java);\n" +
+        "        return @net.java.html.react.React::render(Ljava/lang/Object;)(this.java);\n" +
         "      }\n" +
         "    };\n" +
         "\n" +

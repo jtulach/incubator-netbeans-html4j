@@ -17,9 +17,9 @@
  * under the License.
  */
 
-package cz.xelfi.demo.react4jdemo.javasx;
+package org.netbeans.html.react;
 
-import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
+import net.java.html.react.RegisterComponent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Writer;
@@ -50,7 +50,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
-import cz.xelfi.demo.react4jdemo.api.Render;
+import net.java.html.react.Render;
 import java.util.LinkedList;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -61,7 +61,7 @@ import javax.tools.JavaFileObject;
 
 @ServiceProvider(service = Processor.class)
 public class JavaSxProcessor extends AbstractProcessor {
-    private static final String EXP_ERR_NAME = "cz.xelfi.demo.react4jdemo.javasx.ExpectedError";
+    private static final String EXP_ERR_NAME = "net.java.html.react.test.ExpectedError";
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
@@ -105,7 +105,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             if (returnType.getKind() == TypeKind.DECLARED) {
                 Element returnElement = processingEnv.getTypeUtils().asElement(returnType);
                 Name returnBinName = processingEnv.getElementUtils().getBinaryName((TypeElement) returnElement);
-                ok = "cz.xelfi.demo.react4jdemo.api.React$Element".equals(returnBinName.toString());
+                ok = "net.java.html.react.React$Element".equals(returnBinName.toString());
             }
             if (!ok) {
                 emitError(e, expectedErrors, "@Render method must return React.Element");
@@ -280,9 +280,9 @@ public class JavaSxProcessor extends AbstractProcessor {
         JavaFileObject src = processingEnv.getFiler().createSourceFile(pkg + "." + name, methods.toArray(new Element[0]));
         Writer w = src.openWriter();
         w.append("package " + pkg  + ";\n");
-        w.append("import cz.xelfi.demo.react4jdemo.api.React;\n");
+        w.append("import net.java.html.react.React;\n");
         w.append("final class " + name + " extends " + key + " {\n");
-        w.append("  " + name + "(cz.xelfi.demo.react4jdemo.api.React.Props props) {\n");
+        w.append("  " + name + "(net.java.html.react.React.Props props) {\n");
         w.append("    super(props);\n");
         w.append("  }\n");
         boolean hasCallback = false;
@@ -314,7 +314,7 @@ public class JavaSxProcessor extends AbstractProcessor {
                         hasCallback = true;
                         int idx = ++cnt;
                         w.append("_callback" + idx);
-                        prologue.append("   java.lang.Object " + p.getSimpleName() + " = cz.xelfi.demo.react4jdemo.api.React4J.wrapCallback(new cz.xelfi.demo.react4jdemo.api.React4J.Callback() {\n");
+                        prologue.append("   java.lang.Object " + p.getSimpleName() + " = net.java.html.react.React4J.wrapCallback(new net.java.html.react.React4J.Callback() {\n");
                         prologue.append("     protected void callback(Object[] args) {\n");
                         prologue.append("       _callback" + idx + ".").append(fn.getSimpleName()).append("(");
                         String sep1 = "";

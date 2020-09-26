@@ -16,16 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.javasx;
+package net.java.html.react.test;
 
-import cz.xelfi.demo.react4jdemo.api.React;
-import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
 import net.java.html.junit.BrowserRunner;
 import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import cz.xelfi.demo.react4jdemo.api.Render;
 import net.java.html.junit.HTMLContent;
+import net.java.html.react.React;
+import net.java.html.react.RegisterComponent;
+import net.java.html.react.Render;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import org.netbeans.html.boot.spi.Fn;

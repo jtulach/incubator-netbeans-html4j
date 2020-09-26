@@ -18,10 +18,10 @@
  */
 package cz.xelfi.demo.react4jdemo;
 
-import cz.xelfi.demo.react4jdemo.api.React;
-import cz.xelfi.demo.react4jdemo.api.React.Element;
-import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
-import cz.xelfi.demo.react4jdemo.api.Render;
+import net.java.html.react.React;
+import net.java.html.react.React.Element;
+import net.java.html.react.RegisterComponent;
+import net.java.html.react.Render;
 
 public class TicTacToe1 {
     private TicTacToe1() {

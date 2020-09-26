@@ -16,8 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.javasx;
+package net.java.html.react;
 
-@interface ExpectedError {
-    String value();
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * Render DOM from a string.
+ * Annotate an {@code protected abstract} method in a 
+ * {@link React.Component} subclass class and the
+ * method is going to be implemented automatically. 
+ */
+@Retention(RetentionPolicy.SOURCE)
+@Target(ElementType.METHOD)
+public @interface Render {
+    public String value();
 }

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.api;
+package net.java.html.react;
 
 import org.netbeans.html.context.spi.Contexts;
 import org.netbeans.html.json.spi.Technology;
@@ -38,7 +38,7 @@ public final class React4J implements Contexts.Provider {
     @net.java.html.js.JavaScriptBody(args = {"c"}, javacall = true, body
     = "return function() {\n"
     + "   var args = Array.prototype.slice.call(arguments);\n"
-    + "   @cz.xelfi.demo.react4jdemo.api.React4J::handleCallback(Ljava/lang/Object;Ljava/lang/Object;)(c, args);\n"
+    + "   @net.java.html.react.React4J::handleCallback(Ljava/lang/Object;Ljava/lang/Object;)(c, args);\n"
     + "};\n"
     )
     public static native Object wrapCallback(Callback c);

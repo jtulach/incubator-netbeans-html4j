@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.api;
+package net.java.html.react;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -181,13 +181,13 @@ final class ReactTrans implements Transfer {
         + "    if (request.status !== 0)\n"
         + "      if (request.status < 100 || request.status >= 400) throw request.status + ': ' + request.statusText;"
         + "    try { r = eval('(' + r + ')'); } catch (ignore) { }"
-        + "    @cz.xelfi.demo.react4jdemo.api.ReactTrans::notifySuccess(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(done, str, r);\n"
+        + "    @net.java.html.react.ReactTrans::notifySuccess(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(done, str, r);\n"
         + "  } catch (error) {;\n"
-        + "    @cz.xelfi.demo.react4jdemo.api.ReactTrans::notifyError(Ljava/lang/Object;Ljava/lang/Object;)(done, error);\n"
+        + "    @net.java.html.react.ReactTrans::notifyError(Ljava/lang/Object;Ljava/lang/Object;)(done, error);\n"
         + "  }\n"
         + "};\n"
         + "request.onerror = function (e) {\n"
-        + "  @cz.xelfi.demo.react4jdemo.api.ReactTrans::notifyError(Ljava/lang/Object;Ljava/lang/Object;)(done, e.type + ' status ' + request.status);\n"
+        + "  @net.java.html.react.ReactTrans::notifyError(Ljava/lang/Object;Ljava/lang/Object;)(done, e.type + ' status ' + request.status);\n"
         + "};\n"
         + "if (data) request.send(data);\n"
         + "else request.send();\n"

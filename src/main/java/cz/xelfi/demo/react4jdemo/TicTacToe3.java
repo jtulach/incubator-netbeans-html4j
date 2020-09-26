@@ -19,11 +19,11 @@
 package cz.xelfi.demo.react4jdemo;
 
 import com.dukescript.api.javafx.beans.FXBeanInfo;
-import cz.xelfi.demo.react4jdemo.api.React;
-import cz.xelfi.demo.react4jdemo.api.React.Element;
-import static cz.xelfi.demo.react4jdemo.api.React.props;
-import cz.xelfi.demo.react4jdemo.api.RegisterComponent;
-import cz.xelfi.demo.react4jdemo.api.Render;
+import net.java.html.react.React;
+import net.java.html.react.React.Element;
+import static net.java.html.react.React.props;
+import net.java.html.react.RegisterComponent;
+import net.java.html.react.Render;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

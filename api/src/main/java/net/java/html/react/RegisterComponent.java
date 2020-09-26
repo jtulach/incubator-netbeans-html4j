@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package cz.xelfi.demo.react4jdemo.api;
+package net.java.html.react;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

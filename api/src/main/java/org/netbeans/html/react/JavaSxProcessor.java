@@ -23,8 +23,11 @@ import net.java.html.react.RegisterComponent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -51,13 +54,15 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 import net.java.html.react.Render;
-import java.util.LinkedList;
+
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
+
+import static org.netbeans.html.react.JavaSxProcessor.Token.Type.TEXT;
 
 @ServiceProvider(service = Processor.class)
 public class JavaSxProcessor extends AbstractProcessor {
@@ -181,12 +186,53 @@ public class JavaSxProcessor extends AbstractProcessor {
             text = text.replaceAll("\\\\", "\\\\");
             text = text.replaceAll("\\\n", "\\\\n");
 
-            text = eliminateVariables(text, variables);
-            sb.append(indent).append("React.createText(").append(text).append(")");
+            List<Token> tokens = eliminateVariables1(text);
+            StringBuffer tmp = new StringBuffer();
+            boolean comma = false;
+            for(Token token : tokens) {
+                switch(token.type) {
+                    case TEXT:
+                        if (tmp.length() > 0) {
+                            tmp.append(" + ");
+                        }
+                        tmp.append("\"").append(token.value).append("\"");
+                        break;
+                    case VARIABLE:
+                        if (tmp.length() > 0) {
+                            tmp.append(" + ");
+                        }
+                        tmp.append("\"\" + ");
+                        tmp.append(token.value);
+                        break;
+                    case CALL:
+                        if (tmp.length() > 0) {
+                            if (comma) {
+                                sb.append(", ");
+                            }
+                            sb.append("React.createText(").append(tmp).append(")");
+                            comma = true;
+                            tmp = new StringBuffer();
+                        }
+                        if (comma) {
+                            sb.append(", ");
+                        }
+                        sb.append(token.value);
+                        break;
+                    default:
+                }
+                tmp = new StringBuffer(tmp.toString().trim());
+            }
+
+            if (tmp.length() > 0) {
+                if (comma) {
+                    sb.append(", ");
+                }
+                sb.append(indent).append("React.createText(").append(tmp).append(")");
+            }
             return;
         }
 
-        sb.append(indent + "React.createElement(\"" + node.getNodeName() + "\", ");
+        sb.append(indent).append("React.createElement(\"").append(node.getNodeName()).append("\", ");
         NamedNodeMap attr = node.getAttributes();
         if (attr != null && attr.getLength() > 0) {
             sb.append("\n" + indent + "React.props(");
@@ -217,6 +263,53 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
         }
         sb.append("\n" + indent + ")");
+    }
+
+    static class Token {
+        final String value;
+        final Type type;
+
+        public Token(String value, Type type) {
+            this.value = value;
+            this.type = type;
+        }
+
+        enum Type {
+            TEXT,
+            VARIABLE,
+            CALL
+        }
+    }
+
+    private List<Token> eliminateVariables1(String text) {
+        List<Token> result = new ArrayList<> ();
+        for (;;) {
+            int at = text.indexOf("{");
+            if (at == -1) {
+                result.add(new Token(text, TEXT));
+                break;
+            } else if (at > 0) {
+                result.add(new Token(text.substring(0, at), TEXT));
+                text = text.substring(at);
+            } else if (at == 0) {
+                int end = text.indexOf('}', at);
+                String inside = text.substring(1, end);
+                int call = inside.indexOf('(', at);
+
+                if (call == -1) {
+                    result.add(new Token(inside, Token.Type.VARIABLE));
+                } else {
+                    result.add(new Token(inside, Token.Type.CALL));
+                }
+
+                if (text.length() > end + 1) {
+                    text = text.substring(end + 1);
+                } else {
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     private String eliminateVariables(String text, Set<String> variables) {
@@ -315,7 +408,7 @@ public class JavaSxProcessor extends AbstractProcessor {
                         int idx = ++cnt;
                         w.append("_callback" + idx);
                         prologue.append("   java.lang.Object " + p.getSimpleName() + " = net.java.html.react.React4J.wrapCallback(new net.java.html.react.React4J.Callback() {\n");
-                        prologue.append("     protected void callback(Object[] args) {\n");
+                        prologue.append("     protected void callback(Object[] obj) {\n");
                         prologue.append("       _callback" + idx + ".").append(fn.getSimpleName()).append("(");
                         String sep1 = "";
                         for (int i = 0; i < fn.getParameters().size(); i++) {

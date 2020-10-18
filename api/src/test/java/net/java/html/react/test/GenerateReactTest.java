@@ -74,6 +74,11 @@ public class GenerateReactTest {
             "<input value='{i}' onChange='{ch}'/>"
         )
         protected abstract React.Element input(int i, Runnable ch);
+
+        @Render(
+            "<div>{this.input(i, null)}</div>"
+        )
+        protected abstract React.Element divInput(int i, Runnable ch);
     }
 
     @Test
@@ -135,6 +140,20 @@ public class GenerateReactTest {
 
         assertTrue(text, text.contains("input value=\"3\""));
     }
+
+    @Test
+    public void divIput() throws Exception {
+        React.Element element = new GenerateReactRender(null).divInput(3, () -> {});
+        assertNotNull("Element has been generated", element);
+        React.render(element, "mocknode");
+
+        String text = innerHTML("mocknode");
+        System.out.println(text);
+        assertTrue(text, text.startsWith("<div"));
+        assertTrue(text, text.contains("input value=\"3\""));
+        assertTrue(text, text.endsWith("</div>"));
+    }
+
     private static String innerHTML(String id) throws Exception {
         Fn.Presenter p = Fn.activePresenter();
         assertNotNull("Presenter is active", p);

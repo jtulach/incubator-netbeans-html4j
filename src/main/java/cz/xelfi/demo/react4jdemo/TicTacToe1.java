@@ -56,22 +56,27 @@ public class TicTacToe1 {
         }
 
         @Render(
+            "<Square value='{i}'/>"
+        )
+        protected abstract React.Element renderSquare(int i);
+
+        @Render(
             "<div>" +
             "  <div className='status'>{status}</div>" +
             "  <div className='board-row'>" +
-            "    <Square value='0'/>" +
-            "    <Square value='1'/>" +
-            "    <Square value='2'/>" +
+            "    {this.renderSquare(0)}" +
+            "    {this.renderSquare(1)}" +
+            "    {this.renderSquare(2)}" +
             "  </div>" +
             "  <div className='board-row'>" +
-            "    <Square value='3'/>" +
-            "    <Square value='4'/>" +
-            "    <Square value='5'/>" +
+            "    {this.renderSquare(3)}" +
+            "    {this.renderSquare(4)}" +
+            "    {this.renderSquare(5)}" +
             "  </div>" +
             "  <div className='board-row'>" +
-            "    <Square value='6'/>" +
-            "    <Square value='7'/>" +
-            "    <Square value='8'/>" +
+            "    {this.renderSquare(6)}" +
+            "    {this.renderSquare(7)}" +
+            "    {this.renderSquare(8)}" +
             "  </div>" +
             "</div>"
         )

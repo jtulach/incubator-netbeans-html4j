@@ -195,7 +195,14 @@ public class React {
         }
 
         public Object get(String name) {
-            return readProperty(thiz, js, name);
+            Object raw = readProperty(thiz, js, name);
+            if (raw instanceof Double || raw instanceof Float) {
+                return ((Double) raw);
+            }
+            if (raw instanceof Number) {
+                return ((Number) raw).intValue();
+            }
+            return raw;
         }
 
         @JavaScriptBody(args = { "thiz", "obj", "prop" }, body = ""

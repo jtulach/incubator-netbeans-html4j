@@ -21,7 +21,6 @@ package cz.xelfi.demo.react4jdemo;
 import com.dukescript.api.javafx.beans.FXBeanInfo;
 import net.java.html.react.React;
 import net.java.html.react.React.Element;
-import static net.java.html.react.React.props;
 import net.java.html.react.RegisterComponent;
 import net.java.html.react.Render;
 import java.util.ArrayList;
@@ -29,11 +28,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class TicTacToe3 {
-
-    private static Object cSquare;
-    private static Object cBoard;
-    private static Object cGame;
-
     private TicTacToe3() {
     }
 
@@ -70,30 +64,13 @@ public class TicTacToe3 {
         }
     }
 
-    static class Board extends React.Component<BoardState> {
+    @RegisterComponent(name = "TicTacToe3Board")
+    static abstract class Board extends React.Component<BoardState> {
 
         Board(React.Props props) {
             super(props);
             final List<Character> nine = Collections.nCopies(9, null);
             setState(new BoardState(nine, true));
-        }
-
-        @FXBeanInfo.Generate
-        static class SquareProps extends SquareBase {
-            private final Runnable onClick;
-            final String value;
-
-            SquareProps(String value, Runnable onClick) {
-                this.value = value;
-                this.onClick = onClick;
-            }
-
-            final void onClick() {
-                JsUtils.debugger();
-                if (onClick != null) {
-                    onClick.run();
-                }
-            }
         }
 
         private void handleClick(int i) {
@@ -106,10 +83,15 @@ public class TicTacToe3 {
             setState(new BoardState(arr, !state().xIsNext));
         }
 
-        private Element renderSquare(boolean gameOver, int i) {
+        @Render(
+            "<Square value='{value}' onClick='{clickHandler}'/>"
+        )
+        protected abstract Element renderTheSquare(String value, Runnable clickHandler);
+
+        protected final Element renderSquare(boolean gameOver, int i) {
             final Character ith = state().squares.get(i);
             final Runnable ithClick = gameOver || ith != null ? null : () -> { handleClick(i); };
-            return React.createElement(cSquare, new SquareProps(ith == null ? null : "" + ith, ithClick));
+            return renderTheSquare(ith == null ? "" : "" + ith, ithClick);
         }
 
         private static final int[][] winningLines = new int[][]{
@@ -135,61 +117,70 @@ public class TicTacToe3 {
             return null;
         }
 
+        @Render(
+                "<div>"
+                + "  <div className='status'>{status}</div>"
+                + "  <div className='board-row'>"
+                + "    {this.renderSquare(gameOver, 0)}"
+                + "    {this.renderSquare(gameOver, 1)}"
+                + "    {this.renderSquare(gameOver, 2)}"
+                + "  </div>"
+                + "  <div className='board-row'>"
+                + "    {this.renderSquare(gameOver, 3)}"
+                + "    {this.renderSquare(gameOver, 4)}"
+                + "    {this.renderSquare(gameOver, 5)}"
+                + "  </div>"
+                + "  <div className='board-row'>"
+                + "    {this.renderSquare(gameOver, 6)}"
+                + "    {this.renderSquare(gameOver, 7)}"
+                + "    {this.renderSquare(gameOver, 8)}"
+                + "  </div>"
+                + "</div>"
+        )
+        protected abstract Element renderBoard(String status, boolean gameOver);
+
         @Override
         protected Element render() {
             final Character winner = calculateWinner(state().squares);
             final boolean gameOver = winner != null;
-            final Element status;
+            final String status;
             if (winner == null) {
-                status = React.createText("Next player: " + (state().xIsNext ? 'X' : 'O'));
+                status = "Next player: " + (state().xIsNext ? 'X' : 'O');
             } else {
-                status = React.createText("Winner " + winner);
+                status = "Winner " + winner;
             }
 
-            return React.createElement("div", null,
-                    React.createElement("div", props("className", "status"), status),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(gameOver, 0),
-                            renderSquare(gameOver, 1),
-                            renderSquare(gameOver, 2)
-                    ),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(gameOver, 3),
-                            renderSquare(gameOver, 4),
-                            renderSquare(gameOver, 5)
-                    ),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(gameOver, 6),
-                            renderSquare(gameOver, 7),
-                            renderSquare(gameOver, 8)
-                    )
-            );
+            return renderBoard(status, gameOver);
         }
     }
 
-    static class Game extends React.Component {
+    @RegisterComponent(name = "TicTacToe3Game")
+    static abstract class Game extends React.Component {
 
         public Game(React.Props props) {
             super(props);
         }
 
-        protected Element render() {
-            return React.createElement("div", props("className", "game"),
-                    React.createElement("div", props("className", "game-board"),
-                            React.createElement(cBoard, null)
-                    ),
-                    React.createElement("div", props("className", "game-info"),
-                            React.createElement("div", null),
-                            React.createElement("ol", null)
-                    )
-            );
-        }
+        @Render(
+                "<div className='game'>"
+                + "  <div className='game-board'>"
+                + "    <Board/>"
+                + "  </div>"
+                + "  <div className='game-info'>"
+                + "    <div></div>"
+                + "    <ol></ol>"
+                + "  </div>"
+                + "</div>"
+        )
+        @Override
+        protected abstract Element render();
+
     }
 
     public static void onPageLoad() {
-        cSquare = React.register("Square", TicTacToe3Square::new);
-        cBoard = React.register("Board", Board::new);
-        cGame = React.register("Game", Game::new);
+        React.register("Square", TicTacToe3Square::new);
+        React.register("Board", TicTacToe3Board::new);
+        React.register("Game", TicTacToe3Game::new);
         React.render("Game", "root");
     }
 

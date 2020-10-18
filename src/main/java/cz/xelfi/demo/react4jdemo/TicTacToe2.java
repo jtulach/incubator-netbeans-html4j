@@ -20,16 +20,10 @@ package cz.xelfi.demo.react4jdemo;
 
 import net.java.html.react.React;
 import net.java.html.react.React.Element;
-import static net.java.html.react.React.props;
 import net.java.html.react.RegisterComponent;
 import net.java.html.react.Render;
 
 public class TicTacToe2 {
-
-    private static Object cSquare;
-    private static Object cBoard;
-    private static Object cGame;
-
     private TicTacToe2() {
     }
 
@@ -49,70 +43,80 @@ public class TicTacToe2 {
 
         @Override
         protected React.Element render() {
-            return renderSquare(state() == null ? null : state().toString(), () -> {
+            return renderSquare(state() == null ? "" : state().toString(), () -> {
                 setState('X');
             });
         }
     }
 
-    static class Board extends React.Component {
+    @RegisterComponent(name = "TicTacToe2Board")
+    static abstract class Board extends React.Component {
 
         Board(React.Props props) {
             super(props);
         }
 
-        private Element renderSquare(int i) {
-            return React.createElement(cSquare, props("value", "" + i));
-        }
+        @Render(
+            "<Square value='{i}'/>"
+        )
+
+        protected abstract React.Element renderSquare(int i);
+
+        @Render(
+            "<div>" +
+            "  <div className='status'>{status}</div>" +
+            "  <div className='board-row'>" +
+            "    {this.renderSquare(0)}" +
+            "    {this.renderSquare(1)}" +
+            "    {this.renderSquare(2)}" +
+            "  </div>" +
+            "  <div className='board-row'>" +
+            "    {this.renderSquare(3)}" +
+            "    {this.renderSquare(4)}" +
+            "    {this.renderSquare(5)}" +
+            "  </div>" +
+            "  <div className='board-row'>" +
+            "    {this.renderSquare(6)}" +
+            "    {this.renderSquare(7)}" +
+            "    {this.renderSquare(8)}" +
+            "  </div>" +
+            "</div>"
+        )
+        protected abstract Element renderBoard(String status);
 
         @Override
         protected Element render() {
-            final Element status = React.createText("Next player: X");
-
-            return React.createElement("div", null,
-                    React.createElement("div", props("className", "status"), status),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(0),
-                            renderSquare(1),
-                            renderSquare(2)
-                    ),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(3),
-                            renderSquare(4),
-                            renderSquare(5)
-                    ),
-                    React.createElement("div", props("className", "board-row"),
-                            renderSquare(6),
-                            renderSquare(7),
-                            renderSquare(8)
-                    )
-            );
+            return renderBoard("Next player: X");
         }
     }
 
-    static class Game extends React.Component {
+    @RegisterComponent(name = "TicTacToe2Game")
+    static abstract class Game extends React.Component {
 
         public Game(React.Props props) {
             super(props);
         }
 
-        protected Element render() {
-            return React.createElement("div", props("className", "game"),
-                    React.createElement("div", props("className", "game-board"),
-                            React.createElement(cBoard, null)
-                    ),
-                    React.createElement("div", props("className", "game-info"),
-                            React.createElement("div", null),
-                            React.createElement("ol", null)
-                    )
-            );
-        }
+        @Render(
+            "<div className='game'>" +
+            "  <div className='game-board'>" +
+            "    <Board/>" +
+            "  </div>" +
+            "  <div className='game-info'>" +
+            "    <div></div>" +
+            "    <ol></ol>" +
+            "  </div>" +
+            "</div>"
+        )
+        @Override
+        protected abstract Element render();
+
     }
 
     public static void onPageLoad() {
-        cSquare = React.register("Square", TicTacToe2Square::new);
-        cBoard = React.register("Board", Board::new);
-        cGame = React.register("Game", Game::new);
+        React.register("Square", TicTacToe2Square::new);
+        React.register("Board", TicTacToe2Board::new);
+        React.register("Game", TicTacToe2Game::new);
         React.render("Game", "root");
     }
 

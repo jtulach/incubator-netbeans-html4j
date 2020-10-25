@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Completion;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
@@ -80,6 +81,116 @@ public class JavaSxProcessor extends AbstractProcessor {
         return SourceVersion.latest();
     }
 
+    private static final class ParamCompletion implements Completion {
+        private final String prefix;
+        private final Name name;
+
+        ParamCompletion(String prefix, Name name) {
+            this.prefix = prefix;
+            this.name = name;
+        }
+
+        @Override
+        public String getValue() {
+            return prefix + name + "}";
+        }
+
+        @Override
+        public String getMessage() {
+            return "Access parameter " + name;
+        }
+    }
+
+    private static final class ThisCompletion implements Completion {
+        private final String prefix;
+
+        public ThisCompletion(String prefix) {
+            this.prefix = prefix;
+        }
+
+        @Override
+        public String getValue() {
+            return prefix + "this.";
+        }
+
+        @Override
+        public String getMessage() {
+            return "Call this method";
+        }
+    }
+
+    private static final class CallCompletion implements Completion {
+        private final String prefix;
+        private final Name name;
+        private final List<? extends VariableElement> types;
+
+        CallCompletion(String prefix, Name name, List<? extends VariableElement> parameters) {
+            this.prefix = prefix;
+            this.name = name;
+            this.types = parameters;
+        }
+
+        @Override
+        public String getValue() {
+            StringBuilder sb = new StringBuilder();
+            sb.append(prefix).append(name).append("(");
+            String sep = "";
+            for (int i = 0; i < types.size(); i++) {
+                sb.append(sep);
+                switch (types.get(i).asType().getKind()) {
+                    case BOOLEAN:
+                        sb.append("false");
+                        break;
+                    case BYTE:
+                    case CHAR:
+                    case SHORT:
+                    case INT:
+                    case FLOAT:
+                    case DOUBLE:
+                        sb.append("0");
+                        break;
+                    default:
+                        sb.append("null");
+                }
+                sep = ", ";
+            }
+            sb.append(")}");
+            return sb.toString();
+        }
+
+        @Override
+        public String getMessage() {
+            return "Call " + name;
+        }
+    }
+
+    @Override
+    public Iterable<? extends Completion> getCompletions(Element element, AnnotationMirror mirror, ExecutableElement member, String userText) {
+        List<Completion> arr = new ArrayList<>();
+        if (element.getKind() != ElementKind.METHOD) {
+            return arr;
+        }
+        if (userText.endsWith("{") && element.getKind() == ElementKind.METHOD) {
+            ExecutableElement ee = (ExecutableElement) element;
+            for (VariableElement p : ee.getParameters()) {
+                arr.add(new ParamCompletion(userText, p.getSimpleName()));
+            }
+            arr.add(new ThisCompletion(userText));
+            return arr;
+        } else if (userText.endsWith("{this.")) {
+            for (Element e : element.getEnclosingElement().getEnclosedElements()) {
+                if (e.getKind() != ElementKind.METHOD || e == element) {
+                    continue;
+                }
+                ExecutableElement ee = (ExecutableElement) e;
+                if (isReactElement(ee.getReturnType())) {
+                    arr.add(new CallCompletion(userText, ee.getSimpleName(), ee.getParameters()));
+                }
+            }
+        }
+        return arr;
+    }
+
     public @Override boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver()) {
             return false;
@@ -106,12 +217,7 @@ public class JavaSxProcessor extends AbstractProcessor {
 
             ExecutableElement method = (ExecutableElement) e;
             TypeMirror returnType = method.getReturnType();
-            boolean ok = false;
-            if (returnType.getKind() == TypeKind.DECLARED) {
-                Element returnElement = processingEnv.getTypeUtils().asElement(returnType);
-                Name returnBinName = processingEnv.getElementUtils().getBinaryName((TypeElement) returnElement);
-                ok = "net.java.html.react.React$Element".equals(returnBinName.toString());
-            }
+            boolean ok = isReactElement(returnType);
             if (!ok) {
                 emitError(e, expectedErrors, "@Render method must return React.Element");
                 continue;
@@ -153,6 +259,16 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
         }
         return true;
+    }
+
+    private boolean isReactElement(TypeMirror returnType) {
+        boolean ok = false;
+        if (returnType.getKind() == TypeKind.DECLARED) {
+            Element returnElement = processingEnv.getTypeUtils().asElement(returnType);
+            Name returnBinName = processingEnv.getElementUtils().getBinaryName((TypeElement) returnElement);
+            ok = "net.java.html.react.React$Element".equals(returnBinName.toString());
+        }
+        return ok;
     }
 
     private String findAndVerify(Element e, Set<Element> expectedErrors) {

@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Completion;
@@ -244,7 +245,7 @@ public class JavaSxProcessor extends AbstractProcessor {
                 continue;
             }
             try {
-                generateComponent(entry.getKey(), pkg, cReg.name(), entry.getValue());
+                generateComponent(entry.getKey(), pkg, cReg.name(), entry.getValue(), expectedErrors);
             } catch (IOException ex) {
                 emitError(entry.getKey(), expectedErrors, ex.getMessage() + " while generating " + cReg.name());
             }
@@ -296,13 +297,13 @@ public class JavaSxProcessor extends AbstractProcessor {
         return pkg.getQualifiedName().toString();
     }
 
-    private void printNodes(String indent, Node node, Set<String> variables, StringBuilder sb) {
+    private void printNodes(TypeElement clazz, ExecutableElement method, String indent, Node node, Set<String> variables, StringBuilder sb, Set<Element> expectedErrors) {
         if (node instanceof Text) {
             String text = node.getTextContent();
             text = text.replaceAll("\\\\", "\\\\");
             text = text.replaceAll("\\\n", "\\\\n");
 
-            List<Token> tokens = eliminateVariables1(text);
+            List<Token> tokens = eliminateVariables(clazz, text);
             StringBuffer tmp = new StringBuffer();
             boolean comma = false;
             for(Token token : tokens) {
@@ -334,6 +335,8 @@ public class JavaSxProcessor extends AbstractProcessor {
                         }
                         sb.append(token.value);
                         break;
+                    case MISSING:
+                        emitError(method, expectedErrors, "referenced method is not found " + token.value);
                     default:
                 }
                 tmp = new StringBuffer(tmp.toString().trim());
@@ -351,14 +354,18 @@ public class JavaSxProcessor extends AbstractProcessor {
         sb.append(indent).append("React.createElement(\"").append(node.getNodeName()).append("\", ");
         NamedNodeMap attr = node.getAttributes();
         if (attr != null && attr.getLength() > 0) {
-            sb.append("\n" + indent + "React.props(");
+            sb.append("\n").append(indent).append("React.props(");
             for (int i = 0; i < attr.getLength(); i++) {
                 if (i > 0) {
                     sb.append(", ");
                 }
                 Attr aNode = (Attr) attr.item(i);
-                String attrValue = eliminateVariables(aNode.getValue(), variables);
-                sb.append('"').append(aNode.getName()).append("\", ").append(attrValue);
+                Token token = eliminateVariables(clazz, aNode.getValue()).get(0);
+                if (token.type == Token.Type.CALL || token.type == Token.Type.VARIABLE) {
+                    sb.append('"').append(aNode.getName()).append("\", ").append(token.value);
+                } else {
+                    sb.append('"').append(aNode.getName()).append("\", \"").append(token.value).append('"');
+                }
             }
             sb.append(")");
         } else {
@@ -372,7 +379,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             final int len = children.getLength();
             for (int i = 0; i < len; i++) {
                 sb.append("\n");
-                printNodes("  " + indent, children.item(i), variables, sb);
+                printNodes(clazz, method, "  " + indent, children.item(i), variables, sb, expectedErrors);
                 if (i < len - 1) {
                     sb.append(", ");
                 }
@@ -393,11 +400,28 @@ public class JavaSxProcessor extends AbstractProcessor {
         enum Type {
             TEXT,
             VARIABLE,
-            CALL
+            CALL, 
+            MISSING
         }
     }
-
-    private List<Token> eliminateVariables1(String text) {
+    
+    private Token.Type findMethod(TypeElement clazz, String name) {
+        if (!name.startsWith("this.")) {
+            return Token.Type.MISSING;
+        }
+        Optional<ExecutableElement> maybeMethod = clazz.getEnclosedElements().stream()
+                .filter(m -> TypeKind.EXECUTABLE.equals(m.asType().getKind()))
+                .map(m -> (ExecutableElement) m)
+                .filter(m -> m.getSimpleName().toString().equals(name.substring(5)))
+                .findFirst();
+        if (maybeMethod.isEmpty()) {
+             return Token.Type.MISSING;
+        } 
+        return maybeMethod.get().getReturnType().toString().equals("net.java.html.react.React.Element") ?
+            Token.Type.CALL : Token.Type.VARIABLE;
+    }
+    
+    private List<Token> eliminateVariables(TypeElement clazz, String text) {
         List<Token> result = new ArrayList<> ();
         for (;;) {
             int at = text.indexOf("{");
@@ -415,7 +439,8 @@ public class JavaSxProcessor extends AbstractProcessor {
                 if (call == -1) {
                     result.add(new Token(inside, Token.Type.VARIABLE));
                 } else {
-                    result.add(new Token(inside, Token.Type.CALL));
+                    Token.Type type = findMethod(clazz, inside.substring(0, call));
+                    result.add(new Token(inside, type));
                 }
 
                 if (text.length() > end + 1) {
@@ -426,37 +451,6 @@ public class JavaSxProcessor extends AbstractProcessor {
             }
         }
         return result;
-    }
-
-    private String eliminateVariables(String text, Set<String> variables) {
-        int cntVariables = 0;
-        for (String v : variables) {
-            for (;;) {
-                int at = text.indexOf("{" + v + "}");
-                if (at == -1) {
-                    break;
-                }
-                final String before = text.substring(0, at);
-                final String after = text.substring(at + v.length() + 2);
-                if (cntVariables == 0 && before.isEmpty() && after.isEmpty()) {
-                    text = v;
-                    cntVariables = 1;
-                } else {
-                    text = before + "\" + " + v + "+ \"" + after;
-                    cntVariables = 10;
-                }
-            }
-        }
-        switch (cntVariables) {
-            case 1:
-                // single variables
-                return text;
-            case 0:
-                // just text
-            default:
-                // many variables
-                return '\"' + text + '\"';
-        }
     }
 
     private void emitError(Element e, Set<Element> expectedErrors, String error) {
@@ -478,7 +472,7 @@ public class JavaSxProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Kind.ERROR, error, e);
     }
 
-    private void generateComponent(TypeElement key, String pkg, String name, Set<ExecutableElement> methods) throws IOException {
+    private void generateComponent(TypeElement key, String pkg, String name, Set<ExecutableElement> methods, Set<Element> expectedErrors) throws IOException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
         try {
@@ -547,7 +541,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             w.append(prologue);
             StringBuilder sb = new StringBuilder();
             sb.append("    return ");
-            printNodes("    ", node.getChildNodes().item(0), replacements, sb);
+            printNodes(key, m, "    ", node.getChildNodes().item(0), replacements, sb, expectedErrors);
             sb.append(";\n");
             w.append(sb.toString());
             w.append("  }\n");

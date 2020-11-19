@@ -45,6 +45,14 @@ public class React {
             this.children = children;
         }
     }
+    
+    public static final class RefObject {
+        private Object current;
+        
+        RefObject(Object current) {
+            this.current = current;
+        }
+    }
 
     public static Element createText(String text) {
         return new Element(text, null, null, null);
@@ -90,6 +98,14 @@ public class React {
         FACTORIES.put(name, jsClass);
         return jsClass;
     }
+    
+    public static Object createRef() {
+        Object ref = createRef0();
+        return ref;
+    }
+    
+    @JavaScriptBody(args = { }, body = "return React.createRef()" )
+    private static native Object createRef0();
 
     @JavaScriptBody(args = { "name", "factory" }, javacall = true, body = "\n" +
         "    let JavaReactWrapper = class __ extends React.Component {\n" +

@@ -21,6 +21,8 @@ package cz.xelfi.demo.react4jdemo;
 import java.util.Collections;
 import net.java.html.js.JavaScriptBody;
 import net.java.html.junit.BrowserRunner;
+import net.java.html.react.React;
+import net.java.html.react.React.Element;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,19 +33,34 @@ public class CodeComponentTest {
     public CodeComponentTest() {
     }
 
-    @JavaScriptBody(args = { "element" }, body = ""
+    private static int counter;
+
+    private static String renderAndReturn(Element element) {
+        final String id = "cc-test-" + ++counter;
+        Object div = createDiv(id);
+        React.render(element, id);
+        return readHtml(div);
+    }
+
+    @JavaScriptBody(args = { "id" }, body = ""
             + "let dom = document.createElement('div');\n"
+            + "dom.setAttribute('id', id);\n"
             + "document.body.appendChild(dom);\n"
-            + "ReactDOM.render(element, dom)\n"
+            + "return dom;\n"
+            + "\n"
+    )
+    private static native Object createDiv(String id);
+
+    @JavaScriptBody(args = { "dom" }, body = ""
             + "return dom.innerHTML;\n"
             + "\n"
     )
-    private static native String renderAndReturn(Object element);
+    private static native String readHtml(Object dom);
 
     @Test
     public void boldMainMethod() throws Exception {
         String code = "public static void main(String... args) {}";
-        Object result = CodeComponent.boldJavaKeywords(code, Collections.emptyMap(), Collections.emptySet());
+        Element result = CodeComponent.boldJavaKeywords(code, Collections.emptyMap(), Collections.emptySet());
         String innerHTML = renderAndReturn(result);
         Assert.assertEquals("<pre><b>public</b> <b>static</b> <b>void</b> main(String... args) {}</pre>", innerHTML);
     }
@@ -54,7 +71,7 @@ public class CodeComponentTest {
                 + "public class Main {\n"
                 + "  public static final String x = new String();\n"
                 + "}\n";
-        Object result = CodeComponent.boldJavaKeywords(code, Collections.emptyMap(), Collections.emptySet());
+        Element result = CodeComponent.boldJavaKeywords(code, Collections.emptyMap(), Collections.emptySet());
         String innerHTML = renderAndReturn(result);
         Assert.assertEquals(""
             + "<pre><b>public</b> <b>class</b> Main {\n"

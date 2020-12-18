@@ -16,16 +16,5 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package net.java.html.boot.script;
 
-import org.netbeans.html.json.tck.JavaScriptTCK;
-
-/**
- *
- * @author Jaroslav Tulach
- */
-public final class Jsr223JavaScriptTst extends JavaScriptTCK {
-    public static Class[] tests() {
-        return testClasses();
-    }
-}
+meaningOfWorld = 42;

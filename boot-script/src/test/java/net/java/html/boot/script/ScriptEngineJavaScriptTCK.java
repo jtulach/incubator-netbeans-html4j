@@ -16,3 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package net.java.html.boot.script;
+
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.function.Function;
+import org.netbeans.html.json.tck.JavaScriptTCK;
+import org.netbeans.html.json.tck.KOTest;
+
+/**
+ *
+ * @author Jaroslav Tulach
+ */
+// BEGIN: net.java.html.boot.script.ScriptEngineJavaScriptTCK
+public final class ScriptEngineJavaScriptTCK extends JavaScriptTCK {
+    static <R> void collectTckTests(List<R> res, Function<Method, R> factory) {
+        for (Class c : testClasses()) {
+            for (Method m : c.getMethods()) {
+                if (m.getAnnotation(KOTest.class) != null) {
+                    res.add(factory.apply(m));
+                }
+            }
+        }
+    }
+}
+// END: net.java.html.boot.script.ScriptEngineJavaScriptTCK

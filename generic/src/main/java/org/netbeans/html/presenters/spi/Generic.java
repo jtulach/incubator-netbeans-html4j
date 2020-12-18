@@ -533,6 +533,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         abstract void inJava();
         abstract String inJavaScript(int[] finishedId);
         abstract void header(StringBuilder sb, String sep);
+        abstract boolean done();
 
         final void toString(StringBuilder sb, String sep) {
             header(sb, sep);
@@ -625,6 +626,11 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
         void noLongerNeeded() {
             resultObtained = true;
         }
+
+        @Override
+        boolean done() {
+            return Boolean.TRUE.equals(done);
+        }
     }
 
     private final class JsItem extends Item {
@@ -671,6 +677,10 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             sb.append("javascript");
         }
 
+        @Override
+        boolean done() {
+            return Boolean.TRUE.equals(done);
+        }
     } // end of Item
     
     final void result(String counterId, String typeof, String res) {
@@ -726,7 +736,7 @@ abstract class Generic implements Fn.Presenter, Fn.KeepAlive, Flushable {
             params.addAll(Arrays.asList((Object[]) args));
             Object[] converted = adaptParams(method, params);
             Item top = topMostCall(null);
-            boolean first = top == null;
+            boolean first = top == null || top.done();
             log(Level.FINE, "jc: {0}@{1}args: {2} is first: {3}, now: {4}", new Object[]{method.getName(), vm, params, first, topMostCall(null)});
             JavaItem newItem = registerCall(new JavaItem(nextCallId(), top, method, vm, converted));
             try {

@@ -31,42 +31,41 @@ import static org.junit.Assert.assertTrue;
 import org.netbeans.html.boot.spi.Fn;
 
 @RunWith(BrowserRunner.class)
-@HTMLContent(value = "\n"
-    + "<div id='mocknode'/>\n"
-)
+@HTMLContent(value = """
+<div id='mocknode'/>
+""")
 public class GenerateReactTest {
     @RegisterComponent(name = "GenerateReactRender")
     static abstract class RenderTest {
         RenderTest(React.Props p) {
         }
 
-        @Render(
-        "  <div class='empty'>\n" +
-        "    <h1>Hello!</h1>\n" +
-        "    <h2>Good to see React4J working!</h2>\n" +
-        "  </div>"
-        )
+        @Render("""
+          <div class='empty'>
+            <h1>Hello!</h1>
+            <h2>Good to see React4J working!</h2>
+        </div>""")
         protected abstract React.Element noArgs();
 
-        @Render(
-        "  <div class='empty'>\n" +
-        "    <h1>Hello, {name}!</h1>\n" +
-        "    <h2>Good to see it working {times}x times!</h2>\n" +
-        "  </div>"
+        @Render("""
+          <div class='empty'>
+            <h1>Hello, {name}!</h1>
+            <h2>Good to see it working {times}x times!</h2>
+          </div>"""
         )
         protected abstract React.Element someArgs(String name, int times);
 
-        @Render(
-        "  <div class='empty'>\n" +
-        "    <a href='{url}'>Link</a>\n" +
-        "  </div>"
+        @Render("""
+          <div class='empty'>
+            <a href='{url}'>Link</a>
+          </div>"""
         )
         protected abstract React.Element someAttrs(String url);
 
-        @Render(
-        "  <div class='empty'>\n" +
-        "    <button id='clickButton' onClick='{call}'>Press {name}!</button>\n" +
-        "  </div>"
+        @Render("""
+          <div class='empty'>
+            <button id='clickButton' onClick='{call}'>Press {name}!</button>
+          </div>"""
         )
         protected abstract React.Element callback(String name, Runnable call);
 
@@ -76,10 +75,10 @@ public class GenerateReactTest {
         protected abstract React.Element input(int i, Runnable ch);
  
         @Render(
-            "<div>{this.input(i, null)}</div>"
+            "<div>{this.input(i, ch)}</div>"
         )
         protected abstract React.Element divInput(int i, Runnable ch);
-        
+
         @Render(
             "<div><p>{this.getInt()}</p><p>{this.getString()}</p></div>"
         )

@@ -33,9 +33,9 @@ public class TicTacToe1 {
             super(props);
         }
 
-        @Render(
-            "<button className='square' onClick='{click}'>{value}</button>"
-        )
+        @Render("""
+            <button className='square' onClick='{click}'>{value}</button>
+        """)
         protected abstract Element renderSquare(String value, Runnable click);
 
         @Override
@@ -55,31 +55,31 @@ public class TicTacToe1 {
             super(props);
         }
 
-        @Render(
-            "<Square value='{i}'/>"
-        )
+        @Render("""
+            <Square value='{i}'/>
+        """)
         protected abstract React.Element renderSquare(int i);
 
-        @Render(
-            "<div>" +
-            "  <div className='status'>{status}</div>" +
-            "  <div className='board-row'>" +
-            "    {this.renderSquare(0)}" +
-            "    {this.renderSquare(1)}" +
-            "    {this.renderSquare(2)}" +
-            "  </div>" +
-            "  <div className='board-row'>" +
-            "    {this.renderSquare(3)}" +
-            "    {this.renderSquare(4)}" +
-            "    {this.renderSquare(5)}" +
-            "  </div>" +
-            "  <div className='board-row'>" +
-            "    {this.renderSquare(6)}" +
-            "    {this.renderSquare(7)}" +
-            "    {this.renderSquare(8)}" +
-            "  </div>" +
-            "</div>"
-        )
+        @Render("""
+            <div>
+              <div className='status'>{status}</div>
+              <div className='board-row'>
+                {this.renderSquare(0)}
+                {this.renderSquare(1)}
+                {this.renderSquare(2)}
+              </div>
+              <div className='board-row'>
+                {this.renderSquare(3)}
+                {this.renderSquare(4)}
+                {this.renderSquare(5)}
+              </div>
+              <div className='board-row'>
+                {this.renderSquare(6)}
+                {this.renderSquare(7)}
+                {this.renderSquare(8)}
+              </div>
+            </div>
+        """)
         protected abstract Element renderBoard(String status);
 
         @Override
@@ -94,17 +94,17 @@ public class TicTacToe1 {
             super(props);
         }
 
-        @Render(
-            "<div className='game'>" +
-            "  <div className='game-board'>" +
-            "    <Board/>" +
-            "  </div>" +
-            "  <div className='game-info'>" +
-            "    <div></div>" +
-            "    <ol></ol>" +
-            "  </div>" +
-            "</div>"
-        )
+        @Render("""
+            <div className='game'>
+              <div className='game-board'>
+                <Board/>
+              </div>
+              <div className='game-info'>
+                <div></div>
+                <ol></ol>
+              </div>
+            </div>
+        """)
         @Override
         protected abstract Element render();
     }

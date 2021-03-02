@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Completion;
@@ -66,6 +65,7 @@ import javax.tools.JavaFileObject;
 
 import static org.netbeans.html.react.JavaSxProcessor.Token.Type.TEXT;
 
+@org.apidesign.bck2brwsr.core.ExtraJavaScript(processByteCode = false, resource = "")
 @ServiceProvider(service = Processor.class)
 public class JavaSxProcessor extends AbstractProcessor {
     private static final String EXP_ERR_NAME = "net.java.html.react.test.ExpectedError";
@@ -146,9 +146,12 @@ public class JavaSxProcessor extends AbstractProcessor {
                     case CHAR:
                     case SHORT:
                     case INT:
+                    case LONG:
+                        sb.append("0");
+                        break;
                     case FLOAT:
                     case DOUBLE:
-                        sb.append("0");
+                        sb.append("0.0");
                         break;
                     default:
                         sb.append("null");
@@ -297,13 +300,13 @@ public class JavaSxProcessor extends AbstractProcessor {
         return pkg.getQualifiedName().toString();
     }
 
-    private void printNodes(TypeElement clazz, ExecutableElement method, String indent, Node node, Set<String> variables, StringBuilder sb, Set<Element> expectedErrors) {
+    private void printNodes(TypeElement clazz, ExecutableElement method, String indent, Node node, StringBuilder prologue1, int[] tokenCount, StringBuilder sb, Set<Element> expectedErrors) {
         if (node instanceof Text) {
             String text = node.getTextContent();
             text = text.replaceAll("\\\\", "\\\\");
             text = text.replaceAll("\\\n", "\\\\n");
 
-            List<Token> tokens = eliminateVariables(clazz, text);
+            List<Token> tokens = eliminateVariables(clazz, text, prologue1, tokenCount);
             StringBuffer tmp = new StringBuffer();
             boolean comma = false;
             for(Token token : tokens) {
@@ -360,7 +363,7 @@ public class JavaSxProcessor extends AbstractProcessor {
                     sb.append(", ");
                 }
                 Attr aNode = (Attr) attr.item(i);
-                Token token = eliminateVariables(clazz, aNode.getValue()).get(0);
+                Token token = eliminateVariables(clazz, aNode.getValue(), prologue1, tokenCount).get(0);
                 if (token.type == Token.Type.CALL || token.type == Token.Type.VARIABLE) {
                     sb.append('"').append(aNode.getName()).append("\", ").append(token.value);
                 } else {
@@ -379,7 +382,7 @@ public class JavaSxProcessor extends AbstractProcessor {
             final int len = children.getLength();
             for (int i = 0; i < len; i++) {
                 sb.append("\n");
-                printNodes(clazz, method, "  " + indent, children.item(i), variables, sb, expectedErrors);
+                printNodes(clazz, method, "  " + indent, children.item(i), prologue1, tokenCount, sb, expectedErrors);
                 if (i < len - 1) {
                     sb.append(", ");
                 }
@@ -409,19 +412,20 @@ public class JavaSxProcessor extends AbstractProcessor {
         if (!name.startsWith("this.")) {
             return Token.Type.MISSING;
         }
-        Optional<ExecutableElement> maybeMethod = clazz.getEnclosedElements().stream()
-                .filter(m -> TypeKind.EXECUTABLE.equals(m.asType().getKind()))
-                .map(m -> (ExecutableElement) m)
-                .filter(m -> m.getSimpleName().toString().equals(name.substring(5)))
-                .findFirst();
-        if (maybeMethod.isEmpty()) {
-             return Token.Type.MISSING;
-        } 
-        return maybeMethod.get().getReturnType().toString().equals("net.java.html.react.React.Element") ?
-            Token.Type.CALL : Token.Type.VARIABLE;
+        for (Element e : clazz.getEnclosedElements()) {
+            if (e.asType().getKind() != TypeKind.EXECUTABLE) {
+                continue;
+            }
+            ExecutableElement m = (ExecutableElement) e;
+            if (m.getSimpleName().toString().equals(name.substring(5))) {
+                return m.getReturnType().toString().equals("net.java.html.react.React.Element")
+                        ? Token.Type.CALL : Token.Type.VARIABLE;
+            }
+        }
+        return Token.Type.MISSING;
     }
-    
-    private List<Token> eliminateVariables(TypeElement clazz, String text) {
+
+    private List<Token> eliminateVariables(TypeElement clazz, String text, StringBuilder prologue, int[] tokenCount) {
         List<Token> result = new ArrayList<> ();
         for (;;) {
             int at = text.indexOf("{");
@@ -440,7 +444,13 @@ public class JavaSxProcessor extends AbstractProcessor {
                     result.add(new Token(inside, Token.Type.VARIABLE));
                 } else {
                     Token.Type type = findMethod(clazz, inside.substring(0, call));
-                    result.add(new Token(inside, type));
+                    if (type == Token.Type.CALL) {
+                        int idx = tokenCount[0]++;
+                        prologue.append("    _token").append(idx).append(" = ").append(inside).append(";\n");
+                        result.add(new Token("_token" + idx, type));
+                    } else {
+                        result.add(new Token(inside, type));
+                    }
                 }
 
                 if (text.length() > end + 1) {
@@ -488,7 +498,6 @@ public class JavaSxProcessor extends AbstractProcessor {
         w.append("  " + name + "(net.java.html.react.React.Props props) {\n");
         w.append("    super(props);\n");
         w.append("  }\n");
-        boolean hasCallback = false;
         for (ExecutableElement m : methods) {
             Render render = m.getAnnotation(Render.class);
             Document node;
@@ -500,8 +509,8 @@ public class JavaSxProcessor extends AbstractProcessor {
             w.append("  @Override\n");
             w.append("  protected final React.Element " + m.getSimpleName() + "(");
 
-            Set<String> replacements = new HashSet<>();
-            StringBuilder prologue = new StringBuilder();
+            StringBuilder prologue1 = new StringBuilder();
+            StringBuilder prologue2 = new StringBuilder();
             {
                 String sep = "";
                 int cnt = 0;
@@ -510,40 +519,51 @@ public class JavaSxProcessor extends AbstractProcessor {
 
                     w.append(sep);
                     w.append(pType.toString());
-                    w.append(" ");
+                    int idx = cnt++;
+                    w.append(" _arg" + idx);
+
+                    prologue1.append("    ").append(pType).append(" ").append(p.getSimpleName()).append(" = ").append("_arg" + idx + ";\n");
 
                     ExecutableElement fn = methodOfFunctionInterface(pType);
                     if (fn != null) {
-                        hasCallback = true;
-                        int idx = ++cnt;
-                        w.append("_callback" + idx);
-                        prologue.append("   java.lang.Object " + p.getSimpleName() + " = net.java.html.react.React4J.wrapCallback(new net.java.html.react.React4J.Callback() {\n");
-                        prologue.append("     protected void callback(Object[] obj) {\n");
-                        prologue.append("       _callback" + idx + ".").append(fn.getSimpleName()).append("(");
+                        prologue2.append("    java.lang.Object ").append(p.getSimpleName()).append(" = net.java.html.react.React4J.wrapCallback(new net.java.html.react.React4J.Callback() {\n");
+                        prologue2.append("        protected void callback(Object[] obj) {\n");
+                        prologue2.append("            _arg").append(idx).append(".").append(fn.getSimpleName()).append("(");
                         String sep1 = "";
                         for (int i = 0; i < fn.getParameters().size(); i++) {
-                            prologue.append(sep1);
-                            prologue.append("(" + fn.getParameters().get(i).asType() + ") obj[" + i + "]");
+                            prologue2.append(sep1);
+                            prologue2.append("(").append(fn.getParameters().get(i).asType()).append(") obj[").append(i).append("]");
                             sep1 = ", ";
                         }
-                        prologue.append(");\n");
-                        prologue.append("     }\n");
-                        prologue.append("    });\n");
-                        replacements.add(p.getSimpleName().toString());
+                        prologue2.append(");\n");
+                        prologue2.append("        }\n");
+                        prologue2.append("    });\n");
                     } else {
-                        w.append(p.getSimpleName());
-                        replacements.add(p.getSimpleName().toString());
+                        prologue2.append("    ").append(pType).append(" ").append(p.getSimpleName()).append(" = ").append("_arg" + idx + ";\n");
                     }
                     sep = ", ";
                 }
             }
+
+            StringBuilder returnValue = new StringBuilder();
+            returnValue.append("    return ");
+
+            int[] tokenCount = { 0 };
+            printNodes(key, m, "    ", node.getChildNodes().item(0), prologue1, tokenCount, returnValue, expectedErrors);
             w.append(") {\n");
-            w.append(prologue);
-            StringBuilder sb = new StringBuilder();
-            sb.append("    return ");
-            printNodes(key, m, "    ", node.getChildNodes().item(0), replacements, sb, expectedErrors);
-            sb.append(";\n");
-            w.append(sb.toString());
+
+            for (int i = 0; i < tokenCount[0]; i++) {
+                w.append("    React.Element _token" + i + ";");
+            }
+
+            w.append("    {\n");
+            w.append(prologue1);
+            w.append("    }\n");
+            w.append("    {\n");
+            w.append(prologue2);
+            returnValue.append(";\n");
+            w.append(returnValue.toString());
+            w.append("    }\n");
             w.append("  }\n");
         }
         w.append("}\n");

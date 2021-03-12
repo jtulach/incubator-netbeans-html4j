@@ -87,10 +87,9 @@ public class React {
         return new Element(js, type, attrs, children);
     }
 
-    @JavaScriptBody(args = { "type", "model", "children" }, body =
-        "return React.createElement(type, model, children);\n" +
-        "\n"
-    )
+    @JavaScriptBody(args = { "type", "model", "children" }, body = """
+        return React.createElement(type, model, children);
+    """)
     private static native Object createElement0(Object type, Object model, Object... children);
 
     public static Object register(String name, ComponentFactory cf) {
@@ -107,24 +106,24 @@ public class React {
     @JavaScriptBody(args = { }, body = "return React.createRef()" )
     private static native Object createRef0();
 
-    @JavaScriptBody(args = { "name", "factory" }, javacall = true, body = "\n" +
-        "    let JavaReactWrapper = class __ extends React.Component {\n" +
-        "      constructor(props) {\n" +
-        "        super(props);\n" +
-        "        let both = @net.java.html.react.React::factory(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(this, props, factory);\n" +
-        "        this.java = both[0];\n" +
-        "        this.state = both[1];\n" +
-        "      }\n" +
-        "\n" +
-        "      render() {\n" +
-        "        return @net.java.html.react.React::render(Ljava/lang/Object;)(this.java);\n" +
-        "      }\n" +
-        "    };\n" +
-        "\n" +
-        "    let glob = (0 || eval)('this');\n" +
-        "    glob[name] = JavaReactWrapper;\n" +
-        "    return JavaReactWrapper;\n" +
-        "")
+    @JavaScriptBody(args = { "name", "factory" }, javacall = true, body = """
+        let JavaReactWrapper = class __ extends React.Component {
+          constructor(props) {
+            super(props);
+            let both = @net.java.html.react.React::factory(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)(this, props, factory);
+            this.java = both[0];
+            this.state = both[1];
+          }
+
+          render() {
+            return @net.java.html.react.React::render(Ljava/lang/Object;)(this.java);
+          }
+        };
+
+        let glob = (0 || eval)('this');
+        glob[name] = JavaReactWrapper;
+        return JavaReactWrapper;
+    """)
     private static native Object register0(String name, ComponentFactory factory);
 
     private static final Map<String,Object> RENDERED = new HashMap<>();
@@ -142,21 +141,19 @@ public class React {
         render0(reactElement.js, null, id);
     }
 
-    @JavaScriptBody(args = { "reactElem", "clazz", "id" }, body = "" +
-        "let elem = document.getElementById(id);\n" +
-        "if (!elem) throw 'Cannot find element ' + id;\n" +
-        "if (!reactElem) {\n" +
-        "  reactElem = React.createElement(clazz);\n" +
-        "}\n" +
-        "ReactDOM.render(reactElem, elem);\n" +
-        "\n"
-    )
+    @JavaScriptBody(args = { "reactElem", "clazz", "id" }, body = """
+        let elem = document.getElementById(id);
+        if (!elem) throw 'Cannot find element ' + id;
+        if (!reactElem) {
+          reactElem = React.createElement(clazz);
+        }
+        ReactDOM.render(reactElem, elem);
+    """)
     private static native void render0(Object reactElem, Object clazz, String id);
 
-    @JavaScriptBody(args = { "comp" }, body = "" +
-        "comp.forceUpdate();\n" +
-        "\n"
-    )
+    @JavaScriptBody(args = { "comp" }, body = """
+        comp.forceUpdate();
+    """)
     private static native void forceUpdate(Object comp);
 
     static Object[] factory(Object jsThis, Object props, Object rawFactory) {
@@ -184,12 +181,13 @@ public class React {
         return new Props(null, toJS(keyAndValue));
     }
 
-    @JavaScriptBody(args = { "keysAndValues" }, body = ""
-        + "var obj = {};\n"
-        + "for (let i = 0; i < keysAndValues.length; i += 2) {\n"
-        + "  obj[keysAndValues[i]] = keysAndValues[i + 1];\n"
-        + "}\n"
-        + "return obj;\n"
+    @JavaScriptBody(args = { "keysAndValues" }, body = """
+        var obj = {};
+        for (let i = 0; i < keysAndValues.length; i += 2) {
+          obj[keysAndValues[i]] = keysAndValues[i + 1];
+        }
+        return obj;
+        """
     )
     private static native Object toJS(Object[] keysAndValues);
 
@@ -211,33 +209,26 @@ public class React {
         }
 
         public Object get(String name) {
-            Object raw = readProperty(thiz, js, name);
-            if (raw instanceof Double || raw instanceof Float) {
-                return ((Double) raw);
-            }
-            if (raw instanceof Number) {
-                return ((Number) raw).intValue();
-            }
-            return raw;
+            return readProperty(thiz, js, name);
         }
 
-        @JavaScriptBody(args = { "thiz", "obj", "prop" }, body = ""
-                + "debugger;\n"
-                + "if (thiz) obj = thiz.props;\n"
-                + "let val = obj[prop];\n"
-                + "return val;\n"
-        )
+        @JavaScriptBody(args = { "thiz", "obj", "prop" }, body = """
+            debugger;
+            if (thiz) obj = thiz.props;
+            let val = obj[prop];
+            return val;
+        """)
         private static native Object readProperty(Object thiz, Object obj, String prop);
 
-        @JavaScriptBody(args = { "thiz", "obj", "prop", "ev", "param" }, body = ""
-                + "if (thiz) obj = thiz.props;\n"
-                + "let fn = obj[prop];\n"
-                + "if (typeof fn === 'function') {\n"
-                + "  fn(ev, param);\n"
-                + "} else {\n"
-                + "  throw 'Expected function ' + fn;\n"
-                + "}\n"
-        )
+        @JavaScriptBody(args = { "thiz", "obj", "prop", "ev", "param" }, body = """
+            if (thiz) obj = thiz.props;
+            let fn = obj[prop];
+            if (typeof fn === 'function') {
+              fn(ev, param);
+            } else {
+              throw 'Expected function ' + fn;
+            }
+        """)
         private static native Object callProperty(Object thiz, Object obj, String prop, Object ev, Object param);
 
         public void on(String name, Object ev, Object param) {
